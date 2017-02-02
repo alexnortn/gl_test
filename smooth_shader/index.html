@@ -99,7 +99,8 @@
 	
 	<!-- End Shaders -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
-	<script src="js/Three.js"></script>
+	<script src="js/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/ParametricGeometries.js"></script>
 	
 	<script type="text/javascript">
 
@@ -191,37 +192,70 @@
 
 	
 	// create the sphere's material
-	var shaderMaterial = new THREE.MeshShaderMaterial({
-		uniforms:     	uniforms,
-		attributes:     attributes,
-		vertexShader:   $('#vertexshader').text(),
-		fragmentShader: $('#fragmentshader').text()
-	});
-	
+
+	var materials = [
+		new THREE.ShaderMaterial({
+			uniforms:     	uniforms,
+			vertexShader:   $('#vertexshader').text(),
+			fragmentShader: $('#fragmentshader').text()
+		}),
+		new THREE.MeshBasicMaterial({ 
+			color: 0x000000,
+			shading: THREE.FlatShading,
+			wireframe: true,
+			polygonOffset: true,
+		    polygonOffsetFactor: 1, // positive value pushes polygon further away
+		    polygonOffsetUnits: 1
+		})
+	];
+
+	var material =
+		new THREE.ShaderMaterial({
+			uniforms:     	uniforms,
+			vertexShader:   $('#vertexshader').text(),
+			fragmentShader: $('#fragmentshader').text()
+		});
+
 	// set up the sphere vars
-	var radius = 100, segments = 128, rings = 128;
+	var radius = 100, segments = 64, rings = 64;
 	
 	// create a new mesh with sphere geometry -
 	// we will cover the sphereMaterial next!
-	var sphere = new THREE.Mesh(
-	   new THREE.Sphere(radius, segments, rings),
-	   shaderMaterial);
+	// var sphere = new THREE.Mesh(
+	//    new THREE.Sphere(radius, segments, rings),
+	//    materials);
+
+	var geometry = new THREE.ParametricBufferGeometry( THREE.ParametricGeometries.klein, 25, 25 );
+
+	// Creating Attributes
+	var displacement = new Float32Array( geometry.attributes.position.count );
+	geometry.addAttribute( 'displacement', new THREE.BufferAttribute( displacement, 1 ) );
+
+	var klein = new THREE.Mesh(geometry, material);
+		klein.position.set( WIDTH/2, HEIGHT/2, 0 );
+		klein.scale.set( 1, 1, 1 ); 
+	scene.add( klein );
+
+	// var geometry_group = THREE.SceneUtils.createMultiMaterialObject( geometry, materials );
+	// 	scene.add( geometry_group );
 	   
 	// now populate the array of attributes
-	var vertices = sphere.geometry.vertices,
+	var vertices = geometry.attributes.position.array,
 		values = attributes.a_displacement.value,
 		point = uniforms.u_point.value;
 
 	var max_dist2 = 0;
 	var min_dist2 = Infinity;
 	
-	for (var ii = 0; ii < vertices.length; ii++) {
+	for (var ii = 0; ii < vertices.length; ii+=3) { // Buffer geometry requires an accessor function
 		values.push(Math.random() * 30);
 
-		var vertex = vertices[ii].position;
+		var x = vertices[ii],
+			y = vertices[ii + 1],
+			z = vertices[ii + 2];
 
 		// Calculate Distance Squared
-		var dist2 = Math.pow((vertex.x - point.x), 2) + Math.pow((vertex.y - point.y), 2) + Math.pow((vertex.z - point.z), 2);
+		var dist2 = Math.pow((x - point.x), 2) + Math.pow((y - point.y), 2) + Math.pow((z - point.z), 2);
 			dist2 = Math.abs(dist2);
 
 		max_dist2 = max_dist2 > dist2 ? max_dist2 : dist2;
@@ -230,9 +264,12 @@
 
 	uniforms.u_min_dist2.value = min_dist2;
 	uniforms.u_max_dist2.value = max_dist2;
+
+	console.log(min_dist2);
+	console.log(max_dist2);
 	
 	// add the sphere to the scene
-	scene.addChild(sphere);
+	// scene.addChild(sphere);
 	
 	var frame = 0;
 	var tock = 0;	
