@@ -28,6 +28,7 @@
 		
 		uniform float u_amplitude;
 		uniform float u_frontier;
+		uniform float u_feather;
 		
 		attribute float a_displacement;
 		attribute float a_threshold;
@@ -38,6 +39,7 @@
 		void main() {
 
 			int u_frontier_int = int(u_frontier);
+			int u_feather_int = int(u_feather);
 			int a_threshold_int = int(a_threshold);
 
 			v_Normal = normal;
@@ -175,8 +177,8 @@
 
 
 		// Add geometry
+		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 2000, 24 );
 
-		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 100, 36 );
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
 		// var geometry = new THREE.BufferGeometry();
@@ -260,13 +262,19 @@
 			return (v_i + 1) / 3; // Account for 0 offset
 		}
 
-		var loc = new THREE.Vector3(0, 10000, 10000);
+		var loc = new THREE.Vector3(10000, 0, 0);
+
+		// var frontier_set = new Set();
+		// 	frontier_set.add(find_root(vertices, loc));
+
+		// var init_frontier_set = new Set();
+		// 	init_frontier_set.add(find_root(vertices, loc));
 
 		var frontier_set = new Set();
-			frontier_set.add(find_root(vertices, loc));
+			frontier_set.add(0);
 
 		var init_frontier_set = new Set();
-			init_frontier_set.add(find_root(vertices, loc));
+			init_frontier_set.add(0);
 
 		
 		// Create Look Up Table for BFS Shader
@@ -311,6 +319,10 @@
 			u_frontier: {
 				type: 'f', // a float
 				value: 0.0
+			},
+			u_feather: {
+				type: 'f', // a float
+				value: Math.floor(vertices.length * 0.1) // 10% feather
 			}
 		};
 
@@ -321,10 +333,10 @@
 				fragmentShader: $('#fragmentshader').text()
 			});
 
-		var torusKnot = new THREE.Mesh( geometry, material );
-			torusKnot.position.z = -100;
+		var mesh = new THREE.Mesh( geometry, material );
+			mesh.position.z = -100;
 
-		scene.add( torusKnot );
+		scene.add( mesh );
 
 		
 		function init(f_set, geom, verts) {
@@ -399,7 +411,10 @@
 			 stats.begin();
 
 			if (frontier < (vertices.length/3)) {
-				frontier+=5;
+				frontier+=20;
+			}
+			else {
+				frontier = 0;
 			}
 
 			// console.log(frontier);
