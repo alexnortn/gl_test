@@ -41,13 +41,13 @@
 			int a_threshold_int = int(a_threshold);
 
 			v_Normal = normal;
-			float b = 0.0;
+			float c = 0.0;
 
-			if (a_threshold_int > u_frontier_int) {
-				b = 1.0;
+			if (a_threshold_int < u_frontier_int) {
+				c = 0.85;
 			}
 
-			v_Color = vec4(1.0,0,b,1.0);
+			v_Color = vec4(c,c,c,1.0);
 
 			// Interpolate values wrt distance from point
 			// float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
@@ -102,6 +102,7 @@
 	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
 	<script src="../js/three.min.js"></script>
+	<script src="../js/stats.js"></script>
 	
 	<script>
 
@@ -144,6 +145,11 @@
 
 		const scene = new THREE.Scene();
 
+		// Add stats
+		var stats = new Stats();
+		stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+		document.body.appendChild( stats.dom );
+
 		// Add the camera to the scene.
 		scene.add(camera);
 
@@ -170,7 +176,7 @@
 
 		// Add geometry
 
-		var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 64, 24 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 100, 36 );
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
 		// var geometry = new THREE.BufferGeometry();
@@ -254,7 +260,7 @@
 			return (v_i + 1) / 3; // Account for 0 offset
 		}
 
-		var loc = new THREE.Vector3(0, 0, 1000);
+		var loc = new THREE.Vector3(0, 10000, 10000);
 
 		var frontier_set = new Set();
 			frontier_set.add(find_root(vertices, loc));
@@ -377,16 +383,26 @@
 
 		
 		var frontier = 0;
-		var tock = 0;	
+		var tock = 0;
+
+		// Reset frontier
+		$(window).keypress(function (e) {
+		  if (e.keyCode === 0 || e.keyCode === 32) {
+		    e.preventDefault()
+		    console.log('reset');
+		    frontier = 0;
+		  }
+		})
 	
 		// draw!
 		function update() {
+			 stats.begin();
 
 			if (frontier < (vertices.length/3)) {
-				frontier++;
+				frontier+=5;
 			}
 
-			console.log(frontier);
+			// console.log(frontier);
 
 			tock += tickr.tick;
 			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
@@ -398,6 +414,8 @@
 			// uniforms.u_amplitude.value = Math.sin(frame);
 		
 			renderer.render(scene, camera);
+
+			stats.end();
 			
 			// Set up the next call
 			requestAnimFrame(update);
