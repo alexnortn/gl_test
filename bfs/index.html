@@ -80,7 +80,7 @@ limitations under the License.
 
 
     // Add geometry
-    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 500, 200 );
+    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 500, 500 );
 	var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 	var torusKnot = new THREE.Mesh( geometry, material );
 		torusKnot.position.z = -100;
@@ -177,7 +177,6 @@ limitations under the License.
 	// Create Look Up Table for BFS Shader
 	// new_f_map --> Set !Map
     function traverse(f_map, new_f_map, a_map, count = 0) {
-    	console.log('working...');
     	while ( new_f_map.size ) {											// Run until there is no frontier...
     		count++;														// TIMARON
     		var next_frontier = new Set();									// Establish next frontier
@@ -199,8 +198,10 @@ limitations under the License.
 		return f_map;
     }
 
+    console.log('working on ' + (vertices.length / 3) + ' vertices');
+    var start_time = Date.now();
     frontier_map = traverse(frontier_map, init_frontier_map, adjacency_map);
-    console.log('done.');
+    console.log('Done in ' + (Date.now() - start_time) + "ms");
 
     var frontier_buffer = new Uint16Array(vertices.length);
 
