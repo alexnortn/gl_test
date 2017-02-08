@@ -41,13 +41,13 @@
 			int a_threshold_int = int(a_threshold);
 
 			v_Normal = normal;
-			float opacity = 0.0;
+			float b = 0.0;
 
-			if (a_threshold_int < u_frontier_int) {
-				opacity = 1.0;
+			if (a_threshold_int > u_frontier_int) {
+				b = 1.0;
 			}
 
-			v_Color = vec4(1.0,0,1.0,opacity);
+			v_Color = vec4(1.0,0,b,1.0);
 
 			// Interpolate values wrt distance from point
 			// float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
@@ -170,7 +170,7 @@
 
 		// Add geometry
 
-		var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 64, 8 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 64, 24 );
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
 		// var geometry = new THREE.BufferGeometry();
@@ -198,6 +198,12 @@
 		// 		0.5,0.5,0.5,
 		// 		-0.5,0.5,0.5
 		// 	]), 3));
+
+		// // Create mesh from geometryBuffer
+		// var test_cube = new THREE.Mesh( geometry, material );
+		// 	test_cube.position.z = -100;
+
+		// scene.add( test_cube );
 
 
 
@@ -256,6 +262,7 @@
 		var init_frontier_set = new Set();
 			init_frontier_set.add(find_root(vertices, loc));
 
+		
 		// Create Look Up Table for BFS Shader
 		// new_f_set --> Set !Map
 		function traverse(f_map, new_f_set, a_map, count = 0) {
@@ -314,8 +321,8 @@
 		scene.add( torusKnot );
 
 		
-		function init(geom, f_set) {
-			var frontier_buffer = new Uint16Array(vertices.length / 3);
+		function init(f_set, geom, verts) {
+			var frontier_buffer = new Uint16Array(verts.length / 3);
 			var f_index = 0;
 			
 			f_set.forEach(function(front) {
@@ -324,13 +331,37 @@
 			});
 
 			geom.addAttribute( 'a_threshold', new THREE.BufferAttribute( frontier_buffer, 1 ) );
-
-			// // Create mesh from geometryBuffer
-			// var test_cube = new THREE.Mesh( geometry, material );
-			// 	test_cube.position.z = -100;
-
-			// scene.add( test_cube );
 		}
+
+
+		// Wait for traversal to finish before kicking off animation
+		function bfs(f_set, init_f_set, a_map, verts, geometry) {
+		    var p1 = new Promise(
+		        function(resolve, reject) {
+		        	// When traverse() completes --> resolve() promise
+					console.log('Working on ' + (vertices.length / 3) + ' vertices');
+						var start_time = Date.now();
+						var frontier_set_loc = traverse(f_set, init_f_set, a_map);
+					console.log('Done in ' + (Date.now() - start_time) + "ms");
+
+					resolve(frontier_set_loc);
+		        }
+		    );
+
+		    p1.then(
+		        function(frontier_set_loc) {
+		        	console.log('Initializing materials..');
+		            init(frontier_set_loc, geometry, verts); // Setup materials
+		            console.log('Starting render loop..');
+		            requestAnimFrame(update); // Kick off render loop
+		        })
+		    .catch(
+		        function(reason) {
+		            console.log('Handle rejected promise ('+reason+') here.');
+		        });
+		}
+
+		bfs(frontier_set, init_frontier_set, adjacency_map, vertices, geometry);
 
 
 		// Animation Speed
@@ -360,7 +391,7 @@
 			tock += tickr.tick;
 			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
 			// uniforms.u_frontier = tock * tickr.front;
-			uniforms.u_frontier = frames;
+			uniforms.u_frontier.value = frontier;
 
 			// console.log(tock * tickr.front);
 
@@ -371,8 +402,6 @@
 			// Set up the next call
 			requestAnimFrame(update);
 		}
-		
-		requestAnimFrame(update);
 
 	</script>
 </html>
@@ -380,30 +409,3 @@
 
 
 
-
-
-function bfs(f_set, init_f_set, a_map, verts) {
-    var p1 = new Promise(
-        function(resolve, reject) {
-        	// When traverse() completes --> resolve() promise
-			console.log('Working on ' + (vertices.length / 3) + ' vertices');
-				var start_time = Date.now();
-				var frontier_set_loc = traverse(f_set, init_f_set, a_map);
-			console.log('Done in ' + (Date.now() - start_time) + "ms");
-
-			resolve(frontier_set_loc);
-        }
-    );
-
-    p1.then(
-        function(frontier_set_loc) {
-            init(frontier_set_loc, verts);
-            update();
-        })
-    .catch(
-        function(reason) {
-            console.log('Handle rejected promise ('+reason+') here.');
-        });
-}
-
-bfs(frontier_set, init_frontier_set, adjacency_map);
