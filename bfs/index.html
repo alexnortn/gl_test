@@ -379,8 +379,6 @@
 		        });
 		}
 
-		bfs(frontier_set, init_frontier_set, adjacency_map, vertices, geometry);
-
 
 		// Animation Speed
 		// Provide in Frames
@@ -402,7 +400,7 @@
 		  if (e.keyCode === 0 || e.keyCode === 32) {
 		    e.preventDefault()
 		    console.log('reset');
-		    frontier = 0;
+		    bfs(frontier_set, init_frontier_set, adjacency_map, vertices, geometry);
 		  }
 		})
 	
