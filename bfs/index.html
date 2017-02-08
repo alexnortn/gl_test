@@ -23,35 +23,39 @@
 		// switch on high precision floats
 		#ifdef GL_ES
 		precision highp float;
+		precision highp int;
 		#endif
 		
 		uniform float u_amplitude;
-		uniform float u_max_dist2;
-		uniform float u_min_dist2;
-		uniform float u_theta;
-		uniform vec3 u_point;
+		uniform float u_frontier;
 		
 		attribute float a_displacement;
+		attribute float a_threshold;
 		
 		varying vec3 v_Normal;
 		varying vec4 v_Color;
 
 		void main() {
 
+			int u_frontier_int = int(u_frontier);
+			int a_threshold_int = int(a_threshold);
+
 			v_Normal = normal;
+			float opacity = 0.0;
 
-			// Calculate Distance Squared
-			float dist2 = pow((u_point.x - position.x), 2.0) + pow((u_point.y - position.y), 2.0) + pow((u_point.z - position.z), 2.0);
-				  dist2 = abs(dist2);
+			if (a_threshold_int < u_frontier_int) {
+				opacity = 1.0;
+			}
 
+			v_Color = vec4(1.0,0,1.0,opacity);
 
 			// Interpolate values wrt distance from point
-			float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
-			float b = 1.0 - r;
+			// float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
+			// float b = 1.0 - r;
 
-			v_Color = vec4(r,0,b,1);
+			// v_Color = vec4(r,0,b,1);
 
-			// multiply our a_displacement by the
+			// Multiply our a_displacement by the
 			// amplitude. The amp will get animated
 			// so we'll have animated a_displacement
 			vec3 newPosition = position + 
@@ -71,7 +75,7 @@
 		precision highp float;
 		#endif
 		
-		// same name and type as VS
+		// Same name and type as VS
 		varying vec3 v_Normal;
 		varying vec4 v_Color;
 
@@ -96,8 +100,25 @@
 	</script>
 	<!-- End Shaders -->
 	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
 	<script src="../js/three.min.js"></script>
+	
 	<script>
+
+		var frameRate = 60;
+	
+		// @see http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+		window.requestAnimFrame = (function(){
+	      return  window.requestAnimationFrame       || 
+	              window.webkitRequestAnimationFrame || 
+	              window.mozRequestAnimationFrame    || 
+	              window.oRequestAnimationFrame      || 
+	              window.msRequestAnimationFrame     || 
+	              function(/* function */ callback, /* DOMElement */ element){
+	                window.setTimeout(callback, 1000 / frameRate);
+	              };
+	    })();
+
 		// Set the scene size.
 		const WIDTH = window.innerWidth;
 		const HEIGHT = window.innerHeight;
@@ -149,38 +170,34 @@
 
 		// Add geometry
 
-		// var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 5, 5 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 64, 8 );
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
-		// var torusKnot = new THREE.Mesh( geometry, material );
-		// torusKnot.position.z = -100;
 
-		// scene.add( torusKnot );
-
-		var geometry = new THREE.BufferGeometry();
-		geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
-			5,1,0,
-			4,5,0,
-			6,1,5,
-			6,2,1,
-			7,3,6,
-			6,3,2,
-			4,0,7,
-			7,0,3,
-			7,6,4,
-			4,6,5,
-			3,0,2,
-			2,0,1,
-			]), 1));
-		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
-			-0.5,-0.5,-0.5,
-			0.5,-0.5,-0.5,
-			0.5,-0.5,0.5,
-			-0.5,-0.5,0.5,
-			-0.5,0.5,-0.5,
-			0.5,0.5,-0.5,
-			0.5,0.5,0.5,
-			-0.5,0.5,0.5
-		]), 3));
+		// var geometry = new THREE.BufferGeometry();
+		// 	geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
+		// 		5,1,0,
+		// 		4,5,0,
+		// 		6,1,5,
+		// 		6,2,1,
+		// 		7,3,6,
+		// 		6,3,2,
+		// 		4,0,7,
+		// 		7,0,3,
+		// 		7,6,4,
+		// 		4,6,5,
+		// 		3,0,2,
+		// 		2,0,1,
+		// 		]), 1));
+		// 	geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
+		// 		-0.5,-0.5,-0.5,
+		// 		0.5,-0.5,-0.5,
+		// 		0.5,-0.5,0.5,
+		// 		-0.5,-0.5,0.5,
+		// 		-0.5,0.5,-0.5,
+		// 		0.5,0.5,-0.5,
+		// 		0.5,0.5,0.5,
+		// 		-0.5,0.5,0.5
+		// 	]), 3));
 
 
 
@@ -269,37 +286,125 @@
 			frontier_set = traverse(frontier_set, init_frontier_set, adjacency_map);
 		console.log('Done in ' + (Date.now() - start_time) + "ms");
 
+
+
 		var frontier_buffer = new Uint16Array(vertices.length / 3);
 		var f_index = 0;
 		
 		frontier_set.forEach(function(front) {
-			console.log("index " + f_index + "   front " + front);
 			frontier_buffer[f_index] = front;
 			f_index++;
 		});
 
-		// Init GPU
 
-		// Pass in frontier_buffer
-		// Create itr union
+		// Materials + GPU Stuff
 
-		// Set Shader
-		// if frontier_buffer[now] < theta --> render
+		var attributes = {
+			a_displacement: {
+				type: 'f', // a float
+				value: [] // an empty array
+			}
+		};
+		
+		var uniforms = {
+			u_amplitude: {
+				type: 'f', // a float
+				value: 0.0
+			},
+			u_frontier: {
+				type: 'f', // a float
+				value: 0.0
+			}
+		};
+
+		var material =
+			new THREE.ShaderMaterial({
+				uniforms:     	uniforms,
+				vertexShader:   $('#vertexshader').text(),
+				fragmentShader: $('#fragmentshader').text()
+			});
+
+		var torusKnot = new THREE.Mesh( geometry, material );
+			torusKnot.position.z = -100;
+
+		scene.add( torusKnot );
+
+		geometry.addAttribute( 'a_threshold', new THREE.BufferAttribute( frontier_buffer, 1 ) );
+
+		// // Create mesh from geometryBuffer
+		// var test_cube = new THREE.Mesh( geometry, material );
+		// 	test_cube.position.z = -100;
+
+		// scene.add( test_cube );
 
 
-
-
-
-
-		function update () {
-		// Draw!
-		renderer.render(scene, camera);
-
-		// Schedule the next frame.
-		requestAnimationFrame(update);
+		// Animation Speed
+		// Provide in Frames
+		function setStep (frames) {
+			return {
+				tick: 1 / frames,
+				front: Math.floor((vertices/3) / frames)
+			};
 		}
 
-		// Schedule the first frame.
-		requestAnimationFrame(update);
+		var tickr = setStep(300);
+
+		
+		var frontier = 0;
+		var tock = 0;	
+	
+		// draw!
+		function update() {
+
+			if (frontier < (vertices.length/3)) {
+				frontier++;
+			}
+
+			console.log(frontier);
+
+			tock += tickr.tick;
+			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
+			// uniforms.u_frontier = tock * tickr.front;
+			uniforms.u_frontier = frames;
+
+			// console.log(tock * tickr.front);
+
+			// uniforms.u_amplitude.value = Math.sin(frame);
+		
+			renderer.render(scene, camera);
+			
+			// Set up the next call
+			requestAnimFrame(update);
+		}
+		
+		requestAnimFrame(update);
+
 	</script>
 </html>
+
+
+
+
+
+
+function bfs() {
+    var p1 = new Promise(
+        function(resolve, reject) {
+            window.setTimeout(
+                function() {
+                    resolve();
+                }, 1000);
+        }
+    );
+
+    p1.then(
+        function(val) {
+            // Do stuff -> render the shet
+        })
+    .catch(
+        function(reason) {
+            console.log('Handle rejected promise ('+reason+') here.');
+        });
+}
+
+bfs();
