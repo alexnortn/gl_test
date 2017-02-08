@@ -76,20 +76,50 @@ limitations under the License.
     // add to the scene
     scene.add(pointLight);
 
+
+
+
     // Add geometry
-    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 100, 16 );
-	var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
-	var torusKnot = new THREE.Mesh( geometry, material );
-		torusKnot.position.z = -100;
-	scene.add( torusKnot );
+ //    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 3, 5 );
+	// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+	// var torusKnot = new THREE.Mesh( geometry, material );
+	// 	torusKnot.position.z = -100;
+	
+	// scene.add( torusKnot );
+
+	var geometry = new THREE.BufferGeometry();
+	geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
+	    5,1,0,
+	    4,5,0,
+	    6,1,5,
+	    6,2,1,
+	    7,3,6,
+	    6,3,2,
+	    4,0,7,
+	    7,0,3
+	]), 1));
+	geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
+	    -0.5,-0.5,-0.5,
+	    0.5,-0.5,-0.5,
+	    0.5,0.5,-0.5,
+	    -0.5,0.5,-0.5,
+	    -0.5,-0.5,0.5,
+	    0.5,-0.5,0.5,
+	    0.5,0.5,0.5,
+	    -0.5,0.5,0.5
+	]), 3));
+
+
+
 
 	// Setup Hash Map
 	var vertices = geometry.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
 	var faces = geometry.index.array; // vertex -> index | triangles
-	var map = new Map();
+	
+	var adjacency_map = new Map();
 
 	for (var i = 0; i < faces.length; i++) {
-        map.set(faces[i], map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
+        adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
     }
 
     // Look up index of vertex from position list (not individual values)
@@ -98,10 +128,100 @@ limitations under the License.
         v2 = faces[i+1];
         v3 = faces[i+2];
 
-        map.get(v1).add(v2).add(v3);
-        map.get(v2).add(v1).add(v3);
-        map.get(v3).add(v2).add(v1);
+        adjacency_map.get(v1).add(v2).add(v3);
+        adjacency_map.get(v2).add(v1).add(v3);
+        adjacency_map.get(v3).add(v2).add(v1);
     }
+
+    // verts -> bufffer: [size 3] · loc -> vec3
+    function find_root(verts, loc) {
+    	var v_i;
+    	var min_dist2 = Infinity;
+    	var v = { "x":0, "y":0, "z":0 };
+
+    	for (var i = verts.length-1; i >= 0; i-=3) {
+    		v.x = verts[i-0];
+    		v.y = verts[i-1];
+    		v.z = verts[i-2];
+    		
+    		var dist2 = 
+    			Math.pow((loc.x - v.x), 2) + 
+    			Math.pow((loc.y - v.y), 2) + 
+    			Math.pow((loc.z - v.z), 2);
+
+			if (dist2 < min_dist2) {
+				v_i = i;
+				min_dist2 = dist2;
+			}
+    	}
+
+		return (v_i + 1) / 3; // Account for 0 offset
+    }
+
+    var loc = new THREE.Vector3(0, 0, 0);
+    var root_index = find_root(vertices, loc);
+
+    var frontier_map = new Map();
+    	frontier_map.set(0, new Set());
+    	frontier_map.get(0).add(root_index);
+
+	// Create Look Up Table for BFS Shader
+    function traverse(f_map, a_map, count = 0) {
+    	while ( f_map.get(count).size ) {
+    		var next_frontier = new Set();
+    		for (front of f_map.get(count).values()) {
+    			console.log("front " + front + "   " + "count " + count);
+    			for (item of a_map.get(front-1 || 0).values()) {
+    				for (var ii = count; ii > 0; ii--) {
+	    				if (f_map.get(ii).has(item)){
+	    					console.log('already in frontier_map, continue');
+	    					continue;
+	    				}
+	    			}
+	    			if (next_frontier.has(item)){
+	    				// console.log('already in next_frontier_map, continue');
+    					continue;
+    				}
+
+    				// console.log('Adding ' + item + " to frontier " + count);
+	    			next_frontier.add(item);
+    			}
+    		}
+			
+			console.log(count);
+			count++;
+
+			var next_f_map = f_map;
+				next_f_map.set(count, next_frontier);
+			
+			traverse(next_f_map, a_map, count);
+		}
+
+		return f_map;
+    }
+
+    frontier_map = traverse(frontier_map, adjacency_map);
+
+    var frontier_buffer = new Uint16Array(vertices.length);
+
+    frontier_map.forEach(function(front, itr, i) {
+    	for (var item of front.values()) {
+    		frontier_buffer[item] = i;
+    	}
+    });
+
+    // Init GPU
+
+    // Pass in frontier_buffer
+    // Create itr union
+
+    // Set Shader
+    // if frontier_buffer[now] < theta --> render
+
+
+
+
+
 
     function update () {
       // Draw!
