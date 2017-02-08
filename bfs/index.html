@@ -281,24 +281,8 @@
 			return f_map;
 		}
 
-		console.log('Working on ' + (vertices.length / 3) + ' vertices');
-			var start_time = Date.now();
-			frontier_set = traverse(frontier_set, init_frontier_set, adjacency_map);
-		console.log('Done in ' + (Date.now() - start_time) + "ms");
-
-
-
-		var frontier_buffer = new Uint16Array(vertices.length / 3);
-		var f_index = 0;
-		
-		frontier_set.forEach(function(front) {
-			frontier_buffer[f_index] = front;
-			f_index++;
-		});
-
 
 		// Materials + GPU Stuff
-
 		var attributes = {
 			a_displacement: {
 				type: 'f', // a float
@@ -329,13 +313,24 @@
 
 		scene.add( torusKnot );
 
-		geometry.addAttribute( 'a_threshold', new THREE.BufferAttribute( frontier_buffer, 1 ) );
+		
+		function init(geom, f_set) {
+			var frontier_buffer = new Uint16Array(vertices.length / 3);
+			var f_index = 0;
+			
+			f_set.forEach(function(front) {
+				frontier_buffer[f_index] = front;
+				f_index++;
+			});
 
-		// // Create mesh from geometryBuffer
-		// var test_cube = new THREE.Mesh( geometry, material );
-		// 	test_cube.position.z = -100;
+			geom.addAttribute( 'a_threshold', new THREE.BufferAttribute( frontier_buffer, 1 ) );
 
-		// scene.add( test_cube );
+			// // Create mesh from geometryBuffer
+			// var test_cube = new THREE.Mesh( geometry, material );
+			// 	test_cube.position.z = -100;
+
+			// scene.add( test_cube );
+		}
 
 
 		// Animation Speed
@@ -387,19 +382,23 @@
 
 
 
-function bfs() {
+function bfs(f_set, init_f_set, a_map, verts) {
     var p1 = new Promise(
         function(resolve, reject) {
-            window.setTimeout(
-                function() {
-                    resolve();
-                }, 1000);
+        	// When traverse() completes --> resolve() promise
+			console.log('Working on ' + (vertices.length / 3) + ' vertices');
+				var start_time = Date.now();
+				var frontier_set_loc = traverse(f_set, init_f_set, a_map);
+			console.log('Done in ' + (Date.now() - start_time) + "ms");
+
+			resolve(frontier_set_loc);
         }
     );
 
     p1.then(
-        function(val) {
-            // Do stuff -> render the shet
+        function(frontier_set_loc) {
+            init(frontier_set_loc, verts);
+            update();
         })
     .catch(
         function(reason) {
@@ -407,4 +406,4 @@ function bfs() {
         });
 }
 
-bfs();
+bfs(frontier_set, init_frontier_set, adjacency_map);
