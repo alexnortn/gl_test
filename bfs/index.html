@@ -1,240 +1,305 @@
-<!--
-Copyright 2016 Google Inc. All rights reserved.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
--->
 <!doctype html>
-<head>
-  <meta charset="utf-8">
-  <meta name="author" content="Paul Lewis" />
-  <meta name="viewport" content="width=device-width">
-  <title></title>
-  <style>
-    html, body {
-      padding: 0;
-      margin: 0;
-    }
-  </style>
-</head>
-<body>
-  <div id="container"></div>
-  <script src="../js/three.min.js"></script>
-  <script>
-    // Set the scene size.
-    const WIDTH = window.innerWidth;
-    const HEIGHT = window.innerHeight;
-
-    // Set some camera attributes.
-    const VIEW_ANGLE = 45;
-    const ASPECT = WIDTH / HEIGHT;
-    const NEAR = 0.1;
-    const FAR = 10000;
-
-    // Get the DOM element to attach to
-    const container =
-        document.querySelector('#container');
-
-    // Create a WebGL renderer, camera
-    // and a scene
-    const renderer = new THREE.WebGLRenderer();
-    const camera =
-        new THREE.PerspectiveCamera(
-            VIEW_ANGLE,
-            ASPECT,
-            NEAR,
-            FAR
-        );
-
-    const scene = new THREE.Scene();
-
-    // Add the camera to the scene.
-    scene.add(camera);
-
-    // Start the renderer.
-    renderer.setSize(WIDTH, HEIGHT);
-
-    // Attach the renderer-supplied
-    // DOM element.
-    container.appendChild(renderer.domElement);
-
-    // create a point light
-    const pointLight =
-      new THREE.PointLight(0xFFFFFF);
-
-    // set its position
-    pointLight.position.x = 10;
-    pointLight.position.y = 50;
-    pointLight.position.z = 130;
-
-    // add to the scene
-    scene.add(pointLight);
-
-
-
-
-    // Add geometry
-    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 5, 5 );
-	var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
-	var torusKnot = new THREE.Mesh( geometry, material );
-		torusKnot.position.z = -100;
-	
-	// scene.add( torusKnot );
-
-	// var geometry = new THREE.BufferGeometry();
- //        geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
- //            5,1,0,
- //            4,5,0,
- //            6,1,5,
- //            6,2,1,
- //            7,3,6,
- //            6,3,2,
- //            4,0,7,
- //            7,0,3,
- //            7,6,4,
- //            4,6,5,
- //            3,0,2,
- //            2,0,1,
- //        ]), 1));
- //        geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
- //            -0.5,-0.5,-0.5,
- //            0.5,-0.5,-0.5,
- //            0.5,-0.5,0.5,
- //            -0.5,-0.5,0.5,
- //            -0.5,0.5,-0.5,
- //            0.5,0.5,-0.5,
- //            0.5,0.5,0.5,
- //            -0.5,0.5,0.5
- //        ]), 3));
-
-
-
-
-	// Setup Hash Map
-	var vertices = geometry.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
-	var faces = geometry.index.array; // vertex -> index | triangles
-	
-	var adjacency_map = new Map();
-
-	for (var i = 0; i < faces.length; i++) {
-        adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
-    }
-
-    // Look up index of vertex from position list (not individual values)
-    for (i = 0; i < faces.length; i+=3) {
-        v1 = faces[i];
-        v2 = faces[i+1];
-        v3 = faces[i+2];
-
-        adjacency_map.get(v1).add(v2).add(v3);
-        adjacency_map.get(v2).add(v1).add(v3);
-        adjacency_map.get(v3).add(v2).add(v1);
-    }
-
-    // verts -> bufffer: [size 3] · loc -> vec3
-    function find_root(verts, loc) {
-    	var v_i;
-    	var min_dist2 = Infinity;
-    	var v = { "x":0, "y":0, "z":0 };
-
-    	for (var i = verts.length-1; i >= 0; i-=3) {
-    		v.x = verts[i-0];
-    		v.y = verts[i-1];
-    		v.z = verts[i-2];
-    		
-    		var dist2 = 
-    			Math.pow((loc.x - v.x), 2) + 
-    			Math.pow((loc.y - v.y), 2) + 
-    			Math.pow((loc.z - v.z), 2);
-
-			if (dist2 < min_dist2) {
-				v_i = i;
-				min_dist2 = dist2;
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="author" content="Alex Norton 2017" />
+		<meta name="viewport" content="width=device-width">
+		<title>gl_test</title>
+		<style>
+			html, body {
+				padding: 0;
+				margin: 0;
 			}
-    	}
+		</style>
+	</head>
+	
+	<body>
+		<div id="container"></div>
+	</body>
 
-		return (v_i + 1) / 3; // Account for 0 offset
-    }
+		<!-- Shaders -->
+	<script type="x-shader/x-vertex" id="vertexshader">
+		
+		// switch on high precision floats
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+		
+		uniform float u_amplitude;
+		uniform float u_max_dist2;
+		uniform float u_min_dist2;
+		uniform float u_theta;
+		uniform vec3 u_point;
+		
+		attribute float a_displacement;
+		
+		varying vec3 v_Normal;
+		varying vec4 v_Color;
 
-    var loc = new THREE.Vector3(0, 0, 1000);
-    // var root_index = {
-    // 	"index": find_root(vertices, loc),
-    // 	"frontier": 0
-    // }
+		void main() {
 
-    var frontier_set = new Set();
-    	frontier_set.add(find_root(vertices, loc));
+			v_Normal = normal;
 
-	var init_frontier_set = new Set();
-    	init_frontier_set.add(find_root(vertices, loc));
+			// Calculate Distance Squared
+			float dist2 = pow((u_point.x - position.x), 2.0) + pow((u_point.y - position.y), 2.0) + pow((u_point.z - position.z), 2.0);
+				  dist2 = abs(dist2);
 
-	// Create Look Up Table for BFS Shader
-	// new_f_set --> Set !Map
-    function traverse(f_map, new_f_set, a_map, count = 0) {
-    	while ( new_f_set.size ) {											// Run until there is no frontier...
-    		count++;														// TIMARON
-    		var next_frontier = new Set();									// Establish next frontier
-    		for (front of new_f_set.values()) { 							// For each value in current frontier
-    			for (item of a_map.get(front).values()) { 					// Relate to face LUT
-    				if (f_map.has(item)) { 									// If item not in frontier set...
-		    		}
-		    		else {
-		    			next_frontier.add(item); 							// Add item to next_frontier set
-		    			f_map.add(item); 									// Add item to f_map --> global set
-		    		}
-    			}
-    			new_f_set.delete(front);
-    		}
+
+			// Interpolate values wrt distance from point
+			float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
+			float b = 1.0 - r;
+
+			v_Color = vec4(r,0,b,1);
+
+			// multiply our a_displacement by the
+			// amplitude. The amp will get animated
+			// so we'll have animated a_displacement
+			vec3 newPosition = position + 
+							   normal * 
+							   vec3(a_displacement *
+									u_amplitude);
+
+			gl_Position = projectionMatrix *
+						  modelViewMatrix *
+						  vec4(newPosition,1.0);
+		}
+	</script>
+	
+	<script type="x-shader/x-fragment" id="fragmentshader">
+	
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+		
+		// same name and type as VS
+		varying vec3 v_Normal;
+		varying vec4 v_Color;
+
+		void main() {
+
+			// calc the dot product and clamp
+			// 0 -> 1 rather than -1 -> 1
+			vec3 light = vec3(0.5,0.2,1.0);
 			
-			traverse(f_map, next_frontier, a_map, count);					// Recurse
+			// ensure it's normalized
+			light = normalize(light);
+			
+			float dProd = max(0.0, dot(v_Normal, light));
+				  
+			vec4 fragColor = vec4(dProd, dProd, dProd, 1.0); 
+			
+			// feed into our frag colour
+			gl_FragColor = (fragColor * v_Color);
+			
+		}
+	
+	</script>
+	<!-- End Shaders -->
+	
+	<script src="../js/three.min.js"></script>
+	<script>
+		// Set the scene size.
+		const WIDTH = window.innerWidth;
+		const HEIGHT = window.innerHeight;
+
+		// Set some camera attributes.
+		const VIEW_ANGLE = 45;
+		const ASPECT = WIDTH / HEIGHT;
+		const NEAR = 0.1;
+		const FAR = 10000;
+
+		// Get the DOM element to attach to
+		const container = document.querySelector('#container');
+
+		// Create a WebGL renderer, camera and scene
+		const renderer = new THREE.WebGLRenderer();
+		const camera =
+			new THREE.PerspectiveCamera(
+				VIEW_ANGLE,
+				ASPECT,
+				NEAR,
+				FAR
+		);
+
+		const scene = new THREE.Scene();
+
+		// Add the camera to the scene.
+		scene.add(camera);
+
+		// Start the renderer.
+		renderer.setSize(WIDTH, HEIGHT);
+
+		// Attach the renderer-supplied
+		// DOM element.
+		container.appendChild(renderer.domElement);
+
+		// create a point light
+		const pointLight = new THREE.PointLight(0xFFFFFF);
+
+		// set its position
+		pointLight.position.x = 10;
+		pointLight.position.y = 50;
+		pointLight.position.z = 130;
+
+		// add to the scene
+		scene.add(pointLight);
+
+
+
+
+		// Add geometry
+
+		// var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 5, 5 );
+		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+		// var torusKnot = new THREE.Mesh( geometry, material );
+		// torusKnot.position.z = -100;
+
+		// scene.add( torusKnot );
+
+		var geometry = new THREE.BufferGeometry();
+		geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
+			5,1,0,
+			4,5,0,
+			6,1,5,
+			6,2,1,
+			7,3,6,
+			6,3,2,
+			4,0,7,
+			7,0,3,
+			7,6,4,
+			4,6,5,
+			3,0,2,
+			2,0,1,
+			]), 1));
+		geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
+			-0.5,-0.5,-0.5,
+			0.5,-0.5,-0.5,
+			0.5,-0.5,0.5,
+			-0.5,-0.5,0.5,
+			-0.5,0.5,-0.5,
+			0.5,0.5,-0.5,
+			0.5,0.5,0.5,
+			-0.5,0.5,0.5
+		]), 3));
+
+
+
+
+		// Setup Hash Map
+		var vertices = geometry.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
+		var faces = geometry.index.array; // vertex -> index | triangles
+
+		var adjacency_map = new Map();
+
+		for (var i = 0; i < faces.length; i++) {
+			adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
 		}
 
-		return f_map;
-    }
+		// Look up index of vertex from position list (not individual values)
+		for (i = 0; i < faces.length; i+=3) {
+			v1 = faces[i];
+			v2 = faces[i+1];
+			v3 = faces[i+2];
 
-    console.log('Working on ' + (vertices.length / 3) + ' vertices');
-    var start_time = Date.now();
-    frontier_set = traverse(frontier_set, init_frontier_set, adjacency_map);
-    console.log('Done in ' + (Date.now() - start_time) + "ms");
+			adjacency_map.get(v1).add(v2).add(v3);
+			adjacency_map.get(v2).add(v1).add(v3);
+			adjacency_map.get(v3).add(v2).add(v1);
+		}
 
-    var frontier_buffer = new Uint16Array(vertices.length / 3);
+		// verts -> bufffer: [size 3] · loc -> vec3
+		function find_root(verts, loc) {
+			var v_i;
+			var min_dist2 = Infinity;
+			var v = { "x":0, "y":0, "z":0 };
 
-    var f_index = 0;
-	frontier_set.forEach(function(front) {
+			for (var i = verts.length-1; i >= 0; i-=3) {
+				v.x = verts[i-0];
+				v.y = verts[i-1];
+				v.z = verts[i-2];
+
+				var dist2 = 
+					Math.pow((loc.x - v.x), 2) + 
+					Math.pow((loc.y - v.y), 2) + 
+					Math.pow((loc.z - v.z), 2);
+
+				if (dist2 < min_dist2) {
+					v_i = i;
+					min_dist2 = dist2;
+				}
+			}
+
+			return (v_i + 1) / 3; // Account for 0 offset
+		}
+
+		var loc = new THREE.Vector3(0, 0, 1000);
+
+		var frontier_set = new Set();
+			frontier_set.add(find_root(vertices, loc));
+
+		var init_frontier_set = new Set();
+			init_frontier_set.add(find_root(vertices, loc));
+
+		// Create Look Up Table for BFS Shader
+		// new_f_set --> Set !Map
+		function traverse(f_map, new_f_set, a_map, count = 0) {
+			while ( new_f_set.size ) {								// Run until there is no frontier...
+				count++;											// TIMARON
+				var next_frontier = new Set();						// Establish next frontier
+				for (front of new_f_set.values()) { 				// For each value in current frontier
+					for (item of a_map.get(front).values()) { 		// Relate to face LUT
+						if (f_map.has(item)) { 						// If item not in frontier set...
+							continue;
+						}
+						
+						next_frontier.add(item); 					// Add item to next_frontier set
+						f_map.add(item); 							// Add item to f_map --> global set
+					}
+
+					new_f_set.delete(front);
+				}
+
+				traverse(f_map, next_frontier, a_map, count);		// Recurse
+			}
+
+			return f_map;
+		}
+
+		console.log('Working on ' + (vertices.length / 3) + ' vertices');
+			var start_time = Date.now();
+			frontier_set = traverse(frontier_set, init_frontier_set, adjacency_map);
+		console.log('Done in ' + (Date.now() - start_time) + "ms");
+
+		var frontier_buffer = new Uint16Array(vertices.length / 3);
+		var f_index = 0;
+		
+		frontier_set.forEach(function(front) {
 			console.log("index " + f_index + "   front " + front);
 			frontier_buffer[f_index] = front;
 			f_index++;
-	});
+		});
 
-    // Init GPU
+		// Init GPU
 
-    // Pass in frontier_buffer
-    // Create itr union
+		// Pass in frontier_buffer
+		// Create itr union
 
-    // Set Shader
-    // if frontier_buffer[now] < theta --> render
-
-
+		// Set Shader
+		// if frontier_buffer[now] < theta --> render
 
 
 
 
-    function update () {
-      // Draw!
-      renderer.render(scene, camera);
 
-      // Schedule the next frame.
-      requestAnimationFrame(update);
-    }
 
-    // Schedule the first frame.
-    requestAnimationFrame(update);
-  </script>
-</body>
+		function update () {
+		// Draw!
+		renderer.render(scene, camera);
+
+		// Schedule the next frame.
+		requestAnimationFrame(update);
+		}
+
+		// Schedule the first frame.
+		requestAnimationFrame(update);
+	</script>
 </html>
