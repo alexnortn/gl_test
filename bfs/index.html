@@ -177,7 +177,7 @@
 
 
 		// Add geometry
-		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 2000, 24 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 64, 18 );
 
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
@@ -402,7 +402,7 @@
 		  if (e.keyCode === 0 || e.keyCode === 32) {
 		    e.preventDefault()
 		    console.log('reset');
-		    bfs(frontier_set, init_frontier_set, adjacency_map, vertices, geometry);
+		    frontier = 0;
 		  }
 		})
 	
@@ -411,7 +411,7 @@
 			 stats.begin();
 
 			if (frontier < (vertices.length/3)) {
-				frontier+=20;
+				frontier+=(vertices.length/1000);
 			}
 			else {
 				frontier = 0;
