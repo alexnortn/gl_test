@@ -80,7 +80,7 @@ limitations under the License.
 
 
     // Add geometry
-    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 500, 500 );
+    var geometry = new THREE.TorusKnotBufferGeometry( 10, 3, 5, 5 );
 	var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 	var torusKnot = new THREE.Mesh( geometry, material );
 		torusKnot.position.z = -100;
@@ -168,19 +168,19 @@ limitations under the License.
     // 	"frontier": 0
     // }
 
-    var frontier_map = new Set();
-    	frontier_map.add(find_root(vertices, loc));
+    var frontier_set = new Set();
+    	frontier_set.add(find_root(vertices, loc));
 
-	var init_frontier_map = new Set();
-    	init_frontier_map.add(find_root(vertices, loc));
+	var init_frontier_set = new Set();
+    	init_frontier_set.add(find_root(vertices, loc));
 
 	// Create Look Up Table for BFS Shader
-	// new_f_map --> Set !Map
-    function traverse(f_map, new_f_map, a_map, count = 0) {
-    	while ( new_f_map.size ) {											// Run until there is no frontier...
+	// new_f_set --> Set !Map
+    function traverse(f_map, new_f_set, a_map, count = 0) {
+    	while ( new_f_set.size ) {											// Run until there is no frontier...
     		count++;														// TIMARON
     		var next_frontier = new Set();									// Establish next frontier
-    		for (front of new_f_map.values()) { 							// For each value in current frontier
+    		for (front of new_f_set.values()) { 							// For each value in current frontier
     			for (item of a_map.get(front).values()) { 					// Relate to face LUT
     				if (f_map.has(item)) { 									// If item not in frontier set...
 		    		}
@@ -189,7 +189,7 @@ limitations under the License.
 		    			f_map.add(item); 									// Add item to f_map --> global set
 		    		}
     			}
-    			new_f_map.delete(front);
+    			new_f_set.delete(front);
     		}
 			
 			traverse(f_map, next_frontier, a_map, count);					// Recurse
@@ -198,16 +198,19 @@ limitations under the License.
 		return f_map;
     }
 
-    console.log('working on ' + (vertices.length / 3) + ' vertices');
+    console.log('Working on ' + (vertices.length / 3) + ' vertices');
     var start_time = Date.now();
-    frontier_map = traverse(frontier_map, init_frontier_map, adjacency_map);
+    frontier_set = traverse(frontier_set, init_frontier_set, adjacency_map);
     console.log('Done in ' + (Date.now() - start_time) + "ms");
 
-    var frontier_buffer = new Uint16Array(vertices.length);
+    var frontier_buffer = new Uint16Array(vertices.length / 3);
 
-	for (var front of frontier_map.values()) {
-		frontier_buffer[front.index] = front.frontier;
-	}
+    var f_index = 0;
+	frontier_set.forEach(function(front) {
+			console.log("index " + f_index + "   front " + front);
+			frontier_buffer[f_index] = front;
+			f_index++;
+	});
 
     // Init GPU
 
