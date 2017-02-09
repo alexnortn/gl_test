@@ -43,15 +43,16 @@
 		}
 
 		// Return minimum value wrt circular-distance from frontier
+		// Test this...
 		float circle_dist(float a, float b, float length) {
-			if (a < b) {
-				return min(b - a, a + length - b);
+			if (a > b) {
+				a = a + b; // swap
+				b = a - b;
+				a = a - b;
 			}
-			else {
-				return min(a - b, b + length - a);
-			}
+			
+			return min((b - a), (a + length - b));
 		}
-
 		
 		void main() {
 
@@ -61,21 +62,20 @@
 			int a_threshold_int = int(a_threshold);
 
 			v_Normal = normal;
-			
-			// Propagate one frontier
-			// float c = 0.0;
 
-			// if (a_threshold_int < u_frontier_int) {
-			// 	c = 0.85;
-			// }
+			// thresh   = 99
+			// frontier = 0
+			// length   = 100
+			// feather  = 50
 
-			// v_Color = vec4(c,c,c,1.0);
+			// offset = 1 
 
 			float offset = circle_dist(a_threshold, u_frontier, u_length);
 			float r = 0.0;
 
-			if (offset < u_feather) {
+			if (offset < u_feather) { // This is the problem
 				r = remap(offset, 0.0, u_feather, 1.0, 0.0);
+				// r = 1.0;
 			}
 			
 			float b = 1.0 - r;
@@ -351,7 +351,7 @@
 			},
 			u_feather: {
 				type: 'f', // a float
-				value: Math.floor(vertices.length * 0.1) // 10% feather
+				value: 1000 // 10% feather
 			}
 		};
 
@@ -437,23 +437,19 @@
 	
 		// draw!
 		function update() {
-			 stats.begin();
+			stats.begin();
 
-			if (frontier < (vertices.length/3)) {
-				frontier+=20;
+			frontier += 50;
+
+			// The flip happens on reset
+			// We're not getting an accurate circle distance
+			if (frontier % vertices.length/3 <= 50) {
+				console.log('reset');
 			}
-			else {
-				frontier = 0;
-			}
 
-			// console.log(frontier);
-
-			tock += tickr.tick;
 			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
 			// uniforms.u_frontier = tock * tickr.front;
-			uniforms.u_frontier.value = frontier;
-
-			// console.log(tock * tickr.front);
+			uniforms.u_frontier.value = frontier % vertices.length/3;
 
 			// uniforms.u_amplitude.value = Math.sin(frame);
 		
