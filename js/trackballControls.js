@@ -245,7 +245,7 @@ THREE.TrackballControls = function ( object, domElement ) {
 
 			mouseChange.copy( _panEnd ).sub( _panStart );
 
-			if ( mouseChange.lengthSq() ) {x
+			if ( mouseChange.lengthSq() ) {
 
 				mouseChange.multiplyScalar( _eye.length() * _this.panSpeed );
 
