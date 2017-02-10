@@ -43,7 +43,6 @@
 		}
 
 		// Return minimum value wrt circular-distance from frontier
-		// Test this...
 		float circle_dist(float a, float b, float length) {
 			if (a > b) {
 				a = a + b; // swap
@@ -63,17 +62,10 @@
 
 			v_Normal = normal;
 
-			// thresh   = 99
-			// frontier = 0
-			// length   = 100
-			// feather  = 50
-
-			// offset = 1 
-
 			float offset = circle_dist(a_threshold, u_frontier, u_length);
 			float r = 0.0;
 
-			if (offset < u_feather) { // This is the problem
+			if (offset < u_feather) {
 				r = remap(offset, 0.0, u_feather, 1.0, 0.0);
 				// r = 1.0;
 			}
@@ -202,7 +194,7 @@
 
 
 		// Add geometry
-		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 24 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64 );
 
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
@@ -347,13 +339,16 @@
 			},
 			u_length: {
 				type: 'f', // a float
-				value: vertices.length
+				value: (vertices.length / 3) // buffer [size:3]
 			},
 			u_feather: {
 				type: 'f', // a float
-				value: 1000 // 10% feather
+				value: Math.floor(vertices.length * 0.25) // 10% feather
 			}
 		};
+
+		// Feather
+		console.log(Math.floor(vertices.length * 0.01));
 
 		var material =
 			new THREE.ShaderMaterial({
@@ -416,7 +411,7 @@
 		function setStep (frames) {
 			return {
 				tick: 1 / frames,
-				front: Math.floor((vertices/3) / frames)
+				front: Math.floor((vertices.length/3) / frames)
 			};
 		}
 
@@ -433,23 +428,27 @@
 		    console.log('reset');
 		    frontier = 0;
 		  }
-		})
+		});
+
+		console.log(vertices.length);
+		console.log(vertices.length/3);
 	
 		// draw!
 		function update() {
 			stats.begin();
 
-			frontier += 50;
+			frontier += tickr.front;
 
 			// The flip happens on reset
 			// We're not getting an accurate circle distance
-			if (frontier % vertices.length/3 <= 50) {
-				console.log('reset');
-			}
+			// if ( frontier >= (vertices.length/3 - tick) ) {
+			// 	frontier = 0;
+			// 	console.log('reset');
+			// }
 
 			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
 			// uniforms.u_frontier = tock * tickr.front;
-			uniforms.u_frontier.value = frontier % vertices.length/3;
+			uniforms.u_frontier.value = frontier % (vertices.length / 3);
 
 			// uniforms.u_amplitude.value = Math.sin(frame);
 		
