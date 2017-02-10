@@ -108,6 +108,8 @@
 			light = normalize(light);
 			
 			float dProd = max(0.0, dot(v_Normal, light));
+				  dProd = 1.0 - dProd;
+				  dProd = clamp(dProd, 0.0, 1.0);
 				  
 			vec4 fragColor = vec4(dProd, dProd, dProd, 1.0); 
 			
