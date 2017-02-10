@@ -121,6 +121,7 @@
 	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
 	<script src="../js/three.min.js"></script>
+	<script src="../js/trackballControls.js"></script>
 	<script src="../js/stats.js"></script>
 	
 	<script>
@@ -171,6 +172,7 @@
 
 		// Add the camera to the scene.
 		scene.add(camera);
+		camera.position.z = 100;
 
 		// Start the renderer.
 		renderer.setSize(WIDTH, HEIGHT);
@@ -179,6 +181,10 @@
 		// DOM element.
 		container.appendChild(renderer.domElement);
 
+
+		// Setup trackballControls
+		var controls = new THREE.TrackballControls( camera ); // Only interact when over canvas
+		
 		// create a point light
 		const pointLight = new THREE.PointLight(0xFFFFFF);
 
@@ -196,8 +202,10 @@
 		// Add geometry
 		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64 );
 
+		// Test material
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
+		// Simple test cube
 		// var geometry = new THREE.BufferGeometry();
 		// 	geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
 		// 		5,1,0,
@@ -224,7 +232,7 @@
 		// 		-0.5,0.5,0.5
 		// 	]), 3));
 
-		// // Create mesh from geometryBuffer
+		// Create mesh from geometryBuffer
 		// var test_cube = new THREE.Mesh( geometry, material );
 		// 	test_cube.position.z = -100;
 
@@ -235,6 +243,7 @@
 
 		// Setup Hash Map
 		var vertices = geometry.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
+		var vertex_count = vertices.length / 3;
 		var faces = geometry.index.array; // vertex -> index | triangles
 
 		var adjacency_map = new Map();
@@ -339,16 +348,16 @@
 			},
 			u_length: {
 				type: 'f', // a float
-				value: (vertices.length / 3) // buffer [size:3]
+				value: (vertex_count) // buffer [size:3]
 			},
 			u_feather: {
 				type: 'f', // a float
-				value: Math.floor(vertices.length * 0.25) // 10% feather
+				value: Math.floor(vertex_count * 0.25) // 10% feather
 			}
 		};
 
 		// Feather
-		console.log(Math.floor(vertices.length * 0.01));
+		console.log(Math.floor(vertex_count * 0.01));
 
 		var material =
 			new THREE.ShaderMaterial({
@@ -358,7 +367,7 @@
 			});
 
 		var mesh = new THREE.Mesh( geometry, material );
-			mesh.position.z = -100;
+			// mesh.position.z = -100;
 
 		scene.add( mesh );
 
@@ -381,7 +390,7 @@
 		    var p1 = new Promise(
 		        function(resolve, reject) {
 		        	// When traverse() completes --> resolve() promise
-					console.log('Working on ' + (vertices.length / 3) + ' vertices');
+					console.log('Working on ' + (vertex_count) + ' vertices');
 						var start_time = Date.now();
 						var frontier_set_loc = traverse(f_set, init_f_set, a_map);
 					console.log('Done in ' + (Date.now() - start_time) + "ms");
@@ -411,7 +420,7 @@
 		function setStep (frames) {
 			return {
 				tick: 1 / frames,
-				front: Math.floor((vertices.length/3) / frames)
+				front: Math.floor(vertex_count / frames)
 			};
 		}
 
@@ -420,6 +429,7 @@
 		
 		var frontier = 0;
 		var tock = 0;
+		var rotate = 0;
 
 		// Reset frontier
 		$(window).keypress(function (e) {
@@ -429,9 +439,6 @@
 		    frontier = 0;
 		  }
 		});
-
-		console.log(vertices.length);
-		console.log(vertices.length/3);
 	
 		// draw!
 		function update() {
@@ -439,20 +446,15 @@
 
 			frontier += tickr.front;
 
-			// The flip happens on reset
-			// We're not getting an accurate circle distance
-			// if ( frontier >= (vertices.length/3 - tick) ) {
-			// 	frontier = 0;
-			// 	console.log('reset');
-			// }
-
-			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
-			// uniforms.u_frontier = tock * tickr.front;
-			uniforms.u_frontier.value = frontier % (vertices.length / 3);
-
+			uniforms.u_frontier.value = frontier % (vertex_count);
 			// uniforms.u_amplitude.value = Math.sin(frame);
 		
 			renderer.render(scene, camera);
+
+			rotate += 0.001;
+			mesh.rotation.set(rotate,rotate,rotate);
+
+			controls.update(); // Trackball Update
 
 			stats.end();
 			
