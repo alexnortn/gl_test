@@ -28,7 +28,6 @@
 		
 		uniform float u_amplitude;
 		uniform float u_frontier;
-		uniform float u_length;
 		uniform float u_feather;
 		
 		attribute float a_displacement;
@@ -37,42 +36,26 @@
 		varying vec3 v_Normal;
 		varying vec4 v_Color;
 
-		// Remap value
-		float remap(float value, float inMin, float inMax, float outMin, float outMax) {
-			return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
-		}
-
-		// Return minimum value wrt circular-distance from frontier
-		float circle_dist(float a, float b, float length) {
-			if (a > b) {
-				a = a + b; // swap
-				b = a - b;
-				a = a - b;
-			}
-			
-			return min((b - a), (a + length - b));
-		}
-		
 		void main() {
 
 			int u_frontier_int = int(u_frontier);
-			int u_uniform_int = int(u_length);
 			int u_feather_int = int(u_feather);
 			int a_threshold_int = int(a_threshold);
 
 			v_Normal = normal;
+			float c = 0.0;
 
-			float offset = circle_dist(a_threshold, u_frontier, u_length);
-			float r = 0.0;
-
-			if (offset < u_feather) {
-				r = remap(offset, 0.0, u_feather, 1.0, 0.0);
-				// r = 1.0;
+			if (a_threshold_int < u_frontier_int) {
+				c = 0.85;
 			}
-			
-			float b = 1.0 - r;
 
-			v_Color = vec4(r,0,b,1);
+			v_Color = vec4(c,c,c,1.0);
+
+			// Interpolate values wrt distance from point
+			// float r = u_theta - min( max(((u_max_dist2 - dist2) / u_min_dist2), 0.0), 1.0);
+			// float b = 1.0 - r;
+
+			// v_Color = vec4(r,0,b,1);
 
 			// Multiply our a_displacement by the
 			// amplitude. The amp will get animated
@@ -194,7 +177,7 @@
 
 
 		// Add geometry
-		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64 );
+		var geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 1000 );
 
 		// var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
@@ -337,18 +320,11 @@
 				type: 'f', // a float
 				value: 0.0
 			},
-			u_length: {
-				type: 'f', // a float
-				value: (vertices.length / 3) // buffer [size:3]
-			},
 			u_feather: {
 				type: 'f', // a float
-				value: Math.floor(vertices.length * 0.25) // 10% feather
+				value: Math.floor(vertices.length * 0.1) // 10% feather
 			}
 		};
-
-		// Feather
-		console.log(Math.floor(vertices.length * 0.01));
 
 		var material =
 			new THREE.ShaderMaterial({
@@ -411,7 +387,7 @@
 		function setStep (frames) {
 			return {
 				tick: 1 / frames,
-				front: Math.floor((vertices.length/3) / frames)
+				front: Math.floor((vertices/3) / frames)
 			};
 		}
 
@@ -428,27 +404,27 @@
 		    console.log('reset');
 		    frontier = 0;
 		  }
-		});
-
-		console.log(vertices.length);
-		console.log(vertices.length/3);
+		})
 	
 		// draw!
 		function update() {
-			stats.begin();
+			 stats.begin();
 
-			frontier += tickr.front;
+			if (frontier < (vertices.length/3)) {
+				frontier+=(vertices.length/10000);
+			}
+			else {
+				frontier = 0;
+			}
 
-			// The flip happens on reset
-			// We're not getting an accurate circle distance
-			// if ( frontier >= (vertices.length/3 - tick) ) {
-			// 	frontier = 0;
-			// 	console.log('reset');
-			// }
+			// console.log(frontier);
 
+			tock += tickr.tick;
 			// uniforms.u_theta.value = Math.abs(Math.sin(tock)); // Increment threshold
 			// uniforms.u_frontier = tock * tickr.front;
-			uniforms.u_frontier.value = frontier % (vertices.length / 3);
+			uniforms.u_frontier.value = frontier;
+
+			// console.log(tock * tickr.front);
 
 			// uniforms.u_amplitude.value = Math.sin(frame);
 		
