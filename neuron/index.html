@@ -156,6 +156,7 @@
 	<!-- End Shaders -->
 	
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.5.1/jquery.min.js"></script>
+	<script src="../js/mcworker.js"></script>
 	<script src="../js/three.min.js"></script>
 	<script src="../js/trackballControls.js"></script>
 	<script src="../js/stats.js"></script>
@@ -232,9 +233,36 @@
 		// add to the scene
 		scene.add(pointLight);
 
-		function createMesh() {
 
-			var geo = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64);
+		let myWorker = new MCWorker();
+
+		// load segmentation
+		fetch('../volume/segmentation').then((data) => {
+		    return data.arrayBuffer();
+		}).then((ab) => {
+		    segmentation = new Uint16Array(ab);
+		}).then(() => {
+		    // load segmentation
+		    return myWorker.loadVolume(segmentation);
+		}).then((returned_segmentation) => {
+		    // receive segmentation
+		    // generate mesh
+		    segmentation = returned_segmentation;
+		    return myWorker.generateMesh(910);
+		}).then(({triangles, positions, normals}) => {
+		    // generate geometry
+		    const geo = new THREE.BufferGeometry();
+		    geo.setIndex( new THREE.BufferAttribute(triangles, 1 ) );
+		    geo.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+		    geo.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+		    geo.normalizeNormals();
+
+		    return geo;
+		}).then(createMesh);
+
+		function createMesh(geo) {
+
+			// var geo = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64);
 
 			// Setup Hash Map
 			let vertices = geo.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
@@ -322,6 +350,31 @@
 				return f_map;
 			}
 
+
+			// function traverse1(start) {
+
+			// 	vert_hop_count[];
+
+			// 	let f;
+			// 	let nf;
+			// 	let count;
+
+			// 	while (f) {
+			// 		count++;
+			// 		for (vert of f) {
+			// 			vert_hop_count[vert] = count;
+			// 			nf.add(vert.neighbors);
+			// 		}
+
+			// 		f = nf;
+			// 		nf.clear();
+			// 	}
+			// }
+
+
+
+
+
 			// Materials + GPU Stuff		
 			let uniforms = {
 				u_amplitude: {
@@ -352,6 +405,8 @@
 					vertexShader:   $('#vertexshader').text(),
 					fragmentShader: $('#fragmentshader').text()
 				});
+
+			// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
 			let mesh = new THREE.Mesh( geo, material );
 				mesh.position.set(-0.5, -0.5, -0.5);
@@ -453,7 +508,42 @@
 			}
 		}
 
-		createMesh();
+
+
+
+
+		// Add geometry
+		// let geometry = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64 );
+
+		// Test material
+		// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+
+		// Simple test cube
+		// let geometry = new THREE.BufferGeometry();
+		// 	geometry.setIndex( new THREE.BufferAttribute( new Uint32Array([
+		// 		5,1,0,
+		// 		4,5,0,
+		// 		6,1,5,
+		// 		6,2,1,
+		// 		7,3,6,
+		// 		6,3,2,
+		// 		4,0,7,
+		// 		7,0,3,
+		// 		7,6,4,
+		// 		4,6,5,
+		// 		3,0,2,
+		// 		2,0,1,
+		// 		]), 1));
+		// 	geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array([
+		// 		-0.5,-0.5,-0.5,
+		// 		0.5,-0.5,-0.5,
+		// 		0.5,-0.5,0.5,
+		// 		-0.5,-0.5,0.5,
+		// 		-0.5,0.5,-0.5,
+		// 		0.5,0.5,-0.5,
+		// 		0.5,0.5,0.5,
+		// 		-0.5,0.5,0.5
+		// 	]), 3));
 
 	</script>
 </html>
