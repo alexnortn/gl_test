@@ -1,6 +1,6 @@
 class MCWorker {
     constructor() {
-        this.worker = new Worker('/js/marching_cubes_worker.js');
+        this.worker = new Worker('../js/marching_cubes_worker.js');
 
         let messageCount = 0;
 
