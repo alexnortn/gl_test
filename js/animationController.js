@@ -39,7 +39,7 @@ const scene = new THREE.Scene();
 
 // Add stats
 let stats = new Stats();
-stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild( stats.dom );
 
 // Add the camera to the scene.
@@ -57,18 +57,19 @@ container.appendChild(renderer.domElement);
 // Setup trackballControls
 let controls = new THREE.TrackballControls( camera ); // Only interact when over canvas
 
-// create a point light
-const pointLight = new THREE.PointLight(0xFFFFFF);
 
-// set its position
-pointLight.position.x = 10;
-pointLight.position.y = 50;
-pointLight.position.z = 130;
+// Light for test Material
+// const pointLight = new THREE.PointLight(0xFFFFFF);
+// 	  pointLight.position.x = 10;
+// 	  pointLight.position.y = 50;
+// 	  pointLight.position.z = 130;
 
-// add to the scene
-scene.add(pointLight);
+// scene.add(pointLight);
 
 
+// Run neuron segmentation 
+// Probably calculate these locally, -> What about those meshes from Chris?
+// serve 'good' meshes
 let myWorker = new MCWorker();
 
 // load segmentation
@@ -77,40 +78,38 @@ fetch('../volume/segmentation').then((data) => {
 }).then((ab) => {
     segmentation = new Uint16Array(ab);
 }).then(() => {
-    // load segmentation
-    return myWorker.loadVolume(segmentation);
+    return myWorker.loadVolume(segmentation); // Load segmentation
 }).then((returned_segmentation) => {
-    // receive segmentation
-    // generate mesh
-    segmentation = returned_segmentation;
-    return myWorker.generateMesh(910);
+    segmentation = returned_segmentation; 	  // Receive segmentation
+    return myWorker.generateMesh(910); 		  // Generate mesh
 }).then(({triangles, positions, normals}) => {
-    // generate geometry
-    const geo = new THREE.BufferGeometry();
-    geo.setIndex( new THREE.BufferAttribute(triangles, 1 ) );
-    geo.addAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
-    geo.normalizeNormals();
-
+    const geo = new THREE.BufferGeometry();   // Generate geometry
+	      geo.setIndex( new THREE.BufferAttribute(triangles, 1 ) );
+	      geo.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+	      geo.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+	      geo.normalizeNormals();
+	      
     return geo;
 }).then(createMesh);
 
 function createMesh(geo) {
 
+	// Test Geometry
 	// var geo = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64);
 
-	// Setup Hash Map
 	let vertices = geo.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
 	let vertex_count = vertices.length / 3;
 	let faces = geo.index.array; // vertex -> index | triangles
 
+	
+	// Setup Adjacency Map
 	let adjacency_map = new Map();
 
 	for (let i = 0; i < faces.length; i++) {
 		adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
 	}
-
-	// Look up index of vertex from position list (not individual values)
+	
+	// Generate Adjacency Map
 	for (i = 0; i < faces.length; i+=3) {
 		v1 = faces[i];
 		v2 = faces[i+1];
@@ -121,6 +120,8 @@ function createMesh(geo) {
 		adjacency_map.get(v3).add(v2).add(v1);
 	}
 
+	
+	// Find closest vertex to specified point (vec3)
 	// verts -> bufffer: [size 3] · loc -> vec3
 	function find_root(verts, loc) {
 		let v_i;
@@ -146,6 +147,8 @@ function createMesh(geo) {
 		return (v_i + 1) / 3; // Account for 0 offset
 	}
 
+	
+	// Kick off animation from point in space
 	// let loc = new THREE.Vector3(0.5, 0.375, 0.6);
 
 	// let frontier_set = new Set();
@@ -154,6 +157,8 @@ function createMesh(geo) {
 	// let init_frontier_set = new Set();
 	// 	init_frontier_set.add(find_root(vertices, loc));
 
+	
+	// Kick of animation from vertex index
 	let frontier_set = new Set();
 		frontier_set.add(0);
 
@@ -190,9 +195,9 @@ function createMesh(geo) {
 
 	// 	vert_hop_count[];
 
-	// 	let f;
-	// 	let nf;
-	// 	let count;
+	// 	let f; 		// Frontier
+	// 	let nf; 	// Next Frontier
+	// 	let count;  // Frontier Levels
 
 	// 	while (f) {
 	// 		count++;
@@ -234,14 +239,15 @@ function createMesh(geo) {
 		}
 	}
 
+	// Test Material
+	// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+
 	let material =
 		new THREE.ShaderMaterial({
 			uniforms:     	uniforms,
 			vertexShader:   $('#vertexshader').text(),
 			fragmentShader: $('#fragmentshader').text()
 		});
-
-	// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
 
 	let mesh = new THREE.Mesh( geo, material );
 		mesh.position.set(-0.5, -0.5, -0.5);
