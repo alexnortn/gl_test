@@ -202,9 +202,9 @@
 		const scene = new THREE.Scene();
 
 		// Add stats
-		let stats = new Stats();
-		stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
-		document.body.appendChild( stats.dom );
+		// let stats = new Stats();
+		// stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+		// document.body.appendChild( stats.dom );
 
 		// Add the camera to the scene.
 		scene.add(camera);
@@ -428,7 +428,7 @@
 		
 			// draw!
 			function update() {
-				stats.begin();
+				// stats.begin();
 			
 				renderer.render(scene, camera);
 
@@ -446,7 +446,7 @@
 				u_camera_pos = camera.position;
 				// uniforms.u_amplitude.value = Math.sin(frame);
 
-				stats.end();
+				// stats.end();
 				
 				// Set up the next call
 				requestAnimFrame(update);
