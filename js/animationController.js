@@ -88,7 +88,7 @@ fetch('../volume/segmentation').then((data) => {
 	      geo.addAttribute('position', new THREE.BufferAttribute(positions, 3));
 	      geo.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
 	      geo.normalizeNormals();
-	      
+
     return geo;
 }).then(createMesh);
 
@@ -157,62 +157,51 @@ function createMesh(geo) {
 	// let init_frontier_set = new Set();
 	// 	init_frontier_set.add(find_root(vertices, loc));
 
-	
-	// Kick of animation from vertex index
-	let frontier_set = new Set();
-		frontier_set.add(0);
 
-	let init_frontier_set = new Set();
-		init_frontier_set.add(0);
-
-	
-	// Create Look Up Table for BFS Shader
-	// new_f_set --> Set !Map
-	function traverse(f_map, new_f_set, a_map) {
-		while ( new_f_set.size ) {								// Run until there is no frontier...
-			let next_frontier = new Set();						// Establish next frontier
-			for (front of new_f_set.values()) { 				// For each value in current frontier
-				for (item of a_map.get(front).values()) { 		// Relate to face LUT
-					if (f_map.has(item)) { 						// If item not in frontier set...
-						continue;
-					}
-					
-					next_frontier.add(item); 					// Add item to next_frontier set
-					f_map.add(item); 							// Add item to f_map --> global set
-				}
-
-				new_f_set.delete(front);
-			}
-
-			traverse(f_map, next_frontier, a_map);		// Recurse
-		}
-
-		return f_map;
+	// Set Utils
+	Set.prototype.union = function(setB) {
+	    var union = new Set(this);
+	    for (var elem of setB) {
+	        union.add(elem);
+	    }
+	    return union;
 	}
 
 
-	// function traverse1(start) {
+	function traverse(start, a_map) { // start: vec3
 
-	// 	vert_hop_count[];
+		let count = 0;  	// Frontier Levels
+		let nf = new Set(); // Next Frontier
+		
+		let gf = new Set();	// Global Frontier
+			gf.add(start);
+		
+		let lf = new Set();	// Local Frontier
+			lf.add(start);
 
-	// 	let f; 		// Frontier
-	// 	let nf; 	// Next Frontier
-	// 	let count;  // Frontier Levels
+		console.log('traversal initialized..');
 
-	// 	while (f) {
-	// 		count++;
-	// 		for (vert of f) {
-	// 			vert_hop_count[vert] = count;
-	// 			nf.add(vert.neighbors);
-	// 		}
+		// Westside walk it out
+		while (lf.size) {
+			count++;
+			for (node of lf.values()) { 						// Walk through local frontier 
+				for (neighbor of a_map.get(node).values()) { 	// Walk through adjacency map
+					if (gf.has(neighbor)) {
+						continue;
+					}
 
-	// 		f = nf;
-	// 		nf.clear();
-	// 	}
-	// }
+					nf.add(neighbor); // Add neighbor to next frontier
+					gf.add(neighbor); // Add neighbor to global frontier
+				}
+			}
 
+			lf.clear();
+			lf = lf.union(nf);
+			nf.clear();
+		}
 
-
+		return gf; // Return global frontier
+	}
 
 
 	// Materials + GPU Stuff		
@@ -268,24 +257,26 @@ function createMesh(geo) {
 
 
 	// Wait for traversal to finish before kicking off animation
-	function bfs(f_set, init_f_set, a_map, verts, geo) {
+	function bfs(a_map, verts, geo) {
 	    let p1 = new Promise(
 	        function(resolve, reject) {
 	        	// When traverse() completes --> resolve() promise
 				console.log('Working on ' + (vertex_count) + ' vertices');
 					let start_time = Date.now();
-					let frontier_set_loc = traverse(f_set, init_f_set, a_map);
+					let frontier = traverse(0, a_map); // -> Traverse (from vertex[0])
 				console.log('Done in ' + (Date.now() - start_time) + "ms");
 
-				resolve(frontier_set_loc);
+				resolve(frontier);
 	        }
 	    );
 
 	    p1.then(
-	        function(frontier_set_loc) {
+	        function(frontier) {
 	        	console.log('Initializing materials..');
-	        	console.info(verts.length / 3, frontier_set_loc.size);
-	            init(frontier_set_loc, geo, verts); // Setup materials
+	        	console.log(verts.length / 3, frontier.size);
+	            
+	            init(frontier, geo, verts); // Setup materials
+	            
 	            console.log('Starting render loop..');
 	            requestAnimFrame(update); // Kick off render loop
 	        })
@@ -295,7 +286,7 @@ function createMesh(geo) {
 	        });
 	}
 
-	bfs(frontier_set, init_frontier_set, adjacency_map, vertices, geo);
+	bfs(adjacency_map, vertices, geo);
 
 	// Animation Speed
 	// Provide in Frames
