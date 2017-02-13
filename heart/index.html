@@ -111,9 +111,9 @@
 		void main() {
 
 			// This is for discard
-			// if (v_Color.r > 0.5) {
-			// 	discard;
-			// }
+			if (v_Color.r == 0.0) {
+				discard;
+			}
 
 
 			vec3 from_Cam = normalize(v_From_Cam);
