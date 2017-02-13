@@ -26,12 +26,10 @@
 		precision highp int;
 		#endif
 		
-		uniform float u_amplitude;
 		uniform float u_frontier;
 		uniform float u_length;
 		uniform float u_feather;
 		
-		attribute float a_displacement;
 		attribute float a_threshold;
 
 		uniform vec3 u_camera_pos;
@@ -63,6 +61,8 @@
 			int u_feather_int = int(u_feather);
 			int a_threshold_int = int(a_threshold);
 
+			float amplitude = 0.0; // Create a swelling effect during signal prop
+
 			v_Normal = normal;
 			v_From_Cam = u_camera_pos - position;
 
@@ -71,6 +71,7 @@
 
 			if (offset < u_feather) {
 				r = remap(offset, 0.0, u_feather, 1.0, 0.0);
+				amplitude = r * 0.0075; // Experimentally Determined
 				// r = 1.0;
 			}
 
@@ -88,8 +89,7 @@
 			// so we'll have animated a_displacement
 			vec3 newPosition = position + 
 							   normal * 
-							   vec3(a_displacement *
-									u_amplitude);
+							   vec3(amplitude);
 
 			gl_Position = projectionMatrix *
 						  modelViewMatrix *

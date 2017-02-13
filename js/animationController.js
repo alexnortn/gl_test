@@ -286,7 +286,7 @@ function createMesh(geo) {
 	        });
 	}
 
-	bfs(adjacency_map, vertices, geo);
+	bfs(adjacency_map, vertices, geo); // Kick-Off the whole thing
 
 	// Animation Speed
 	// Provide in Frames
@@ -301,8 +301,8 @@ function createMesh(geo) {
 
 	
 	let frontier = 0;
-	let tock = 0;
 	let rotate = 0;
+	let theta = 0;
 
 	// Reset frontier
 	$(window).keypress(function (e) {
@@ -324,14 +324,13 @@ function createMesh(geo) {
 
 		controls.update(); // Trackball Update
 
-
+		theta += 0.01;
 		frontier += tickr.front;
 		// frontier += 1;
 
 		// To GPU
 		uniforms.u_frontier.value = frontier % (vertex_count);
 		u_camera_pos = camera.position;
-		// uniforms.u_amplitude.value = Math.sin(frame);
 
 		stats.end();
 		
