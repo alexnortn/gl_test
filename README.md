@@ -3,12 +3,12 @@ WebGL + GLSL computational geometry + shader tests & experiments
 
 <br>
 
-_Run_
+**Run**
 
 - cd into repo, start Python web server:
 - Python -m SimpleHTTPServer 8000
 
-_Experiments_
+**Experiments**
 - /BFS
 - /Cells
 - /Ebud
