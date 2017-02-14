@@ -1,5 +1,5 @@
 # gl_test
-webGl + Shader Tests
+WebGL + GLSL computational geometry + shader tests & experiments
 
 
 _Run_
