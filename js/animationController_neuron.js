@@ -130,19 +130,19 @@ function createMesh(geo) {
 		}
 	}
 
+	const center = calculateMeshCenter(vertices);
 	
 	// Find closest vertex to specified point (vec3)
 	// verts -> bufffer: [size 3] · loc -> vec3
 	function find_root(verts, loc) {
 		let v_i;
 		let min_dist2 = Infinity;
-		let max_dist2 = 0;
 		let v = { "x":0, "y":0, "z":0 };
 
 		for (let i = verts.length-1; i >= 0; i-=3) {
-			v.x = verts[i-0];
+			v.x = verts[i-2];
 			v.y = verts[i-1];
-			v.z = verts[i-2];
+			v.z = verts[i-0];
 
 			let dist2 = 
 				Math.pow((loc.x - v.x), 2) + 
@@ -153,13 +153,7 @@ function createMesh(geo) {
 				v_i = i;
 				min_dist2 = dist2;
 			}
-
-			if (dist2 > max_dist2) {
-				max_dist2 = dist2;
-			}
 		}
-
-		console.log(Math.sqrt(min_dist2), Math.sqrt(max_dist2), ((v_i+1) / 3), v);
 
 		return (v_i - 2) / 3; // Account for 0 offset
 	}
@@ -226,7 +220,7 @@ function createMesh(geo) {
 					let start_time = Date.now();
 
 					// let root = new THREE.Vector3(101102.859375,138156.84375,50329.87109375);
-					let root = new THREE.Vector3(109000,165000,20000);
+					let root = new THREE.Vector3(20000, 165000, 109000);
 					// let root = new THREE.Vector3();
 						root = find_root(vertices, root);
 
