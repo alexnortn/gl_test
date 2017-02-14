@@ -262,7 +262,7 @@ function createMesh(geo) {
 				};
 			}
 
-			let tickr = setStep(500);
+			let tickr = setStep(600);
 			
 			let frontier = 0;
 			let rotate = 0;
@@ -291,8 +291,8 @@ function createMesh(geo) {
 				controls.update(); // Trackball Update
 
 				// theta += 0.01;
-				frontier += tickr.front;
-				// frontier += 1;
+				// frontier += tickr.front;
+				frontier += 1;
 
 				// To GPU
 				mesh.material.uniforms.u_frontier.value = frontier % max;
