@@ -100,32 +100,34 @@ let loader = new THREE.CTMLoader();
 	}, { useWorker: true } );
 
 
-
 function createMesh(geo) {
 
 	// Test Geometry
 	// let geo = new THREE.TorusKnotBufferGeometry( 15, 5, 1000, 64);
 
-	let vertices = geo.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
-	let vertex_count = vertices.length / 3;
-	let faces = geo.index.array; // vertex -> index | triangles
+	const vertices = geo.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
+	const vertex_count = vertices.length / 3;
+	const faces = geo.index.array; // vertex -> index | triangles
 	
 	// Setup Adjacency Map
-	let adjacency_map = new Map();
+	const adjacency_map = new Map();
+	{
+		for (let i = 0; i < faces.length; i++) {
+			adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
+		}
 
-	for (let i = 0; i < faces.length; i++) {
-		adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
-	}
-	
-	// Generate Adjacency Map
-	for (i = 0; i < faces.length; i+=3) {
-		v1 = faces[i];
-		v2 = faces[i+1];
-		v3 = faces[i+2];
+		let v1, v2, v3;
+		
+		// Generate Adjacency Map
+		for (let i = 0; i < faces.length; i+=3) {
+			v1 = faces[i];
+			v2 = faces[i+1];
+			v3 = faces[i+2];
 
-		adjacency_map.get(v1).add(v2).add(v3);
-		adjacency_map.get(v2).add(v1).add(v3);
-		adjacency_map.get(v3).add(v2).add(v1);
+			adjacency_map.get(v1).add(v2).add(v3);
+			adjacency_map.get(v2).add(v1).add(v3);
+			adjacency_map.get(v3).add(v2).add(v1);
+		}
 	}
 
 	
@@ -162,113 +164,56 @@ function createMesh(geo) {
 		return (v_i - 2) / 3; // Account for 0 offset
 	}
 
-	
-	// Kick off animation from point in space
-	// let loc = new THREE.Vector3(0.5, 0.375, 0.6);
-
-	// let frontier_set = new Set();
-	// 	frontier_set.add(find_root(vertices, loc));
-
-	// let init_frontier_set = new Set();
-	// 	init_frontier_set.add(find_root(vertices, loc));
-
-
-	// Set Utils
-	Set.prototype.union = function(setB) {
-	    let union = new Set(this);
-	    for (let elem of setB) {
-	        union.add(elem);
-	    }
-	    return union;
-	}
-
-
-	function traverse(start, a_map) { // start: vec3
-
-		let count = 0;  	// Frontier Levels
-		let nf = new Set(); // Next Frontier
-		
-		let gf = new Set();	// Global Frontier
-			gf.add(start);
-		
-		let lf = new Set();	// Local Frontier
-			lf.add(start);
-
-		console.log('traversal initialized..');
-
-		// Westside walk it out
-		while (lf.size) {
-			count++;
-			for (node of lf.values()) { 						// Walk through local frontier 
-				for (neighbor of a_map.get(node).values()) { 	// Walk through adjacency map
-					if (gf.has(neighbor)) {
-						continue;
-					}
-
-					nf.add(neighbor); // Add neighbor to next frontier
-					gf.add(neighbor); // Add neighbor to global frontier
-				}
-			}
-
-			lf.clear();
-			lf = lf.union(nf);
-			nf.clear();
-		}
-
-		return gf; // Return global frontier
-	}
-
-
-	// Materials + GPU Stuff		
-	let uniforms = {
-		u_amplitude: {
-			type: 'f', // a float
-			value: 0.0
-		},
-		u_frontier: {
-			type: 'f', // a float
-			value: 0.0
-		},
-		u_length: {
-			type: 'f', // a float
-			value: (vertex_count) // buffer [size:3]
-		},
-		u_feather: {
-			type: 'f', // a float
-			value: Math.floor(vertex_count * 0.05) // 10% feather
-		},
-		u_camera_pos: {
-			type: 'v3', // a float
-			value:new THREE.Vector3()
-		}
-	}
-
-	// Test Material
-	// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
-
-	let material =
-		new THREE.ShaderMaterial({
-			uniforms:     	uniforms,
-			vertexShader:   $('#vertexshader').text(),
-			fragmentShader: $('#fragmentshader').text()
-		});
-
-	let mesh = new THREE.Mesh( geo, material );
-		//mesh.position.set(-0.5, -0.5, -0.5);
-		//mesh.scale.set(0.0001, 0.0001, 0.0001);
-
-	scene.add(mesh);
-
-	function init(f_set, geo, verts) {
+	function init(res, geo, verts) {
 		let frontier_buffer = new Float32Array(verts.length / 3);
-		let f_index = 0;
-		
-		f_set.forEach(function(front) {
-			frontier_buffer[front] = f_index;
-			f_index++;
-		});
 
-		geo.addAttribute( 'a_threshold', new THREE.BufferAttribute( frontier_buffer, 1 ) );
+		frontier_buffer.fill(-1000); // for discontinuity
+
+		let {map, max} = res;
+		
+		for (let [node, hops] of map.entries()) {
+			frontier_buffer[node] = hops;
+		}
+
+		geo.addAttribute( 'a_hops', new THREE.BufferAttribute( frontier_buffer, 1 ) );
+
+		// Materials + GPU Stuff		
+		let uniforms = {
+			u_amplitude: {
+				type: 'f', // a float
+				value: 0.0
+			},
+			u_frontier: {
+				type: 'f', // a float
+				value: 0.0
+			},
+			u_feather: {
+				type: 'f', // a float
+				value: 10 // 10% feather
+			},
+			u_camera_pos: {
+				type: 'v3', // a float
+				value:new THREE.Vector3()
+			}
+		}
+
+		// Test Material
+		// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+
+		let material =
+			new THREE.ShaderMaterial({
+				uniforms:     	uniforms,
+				vertexShader:   $('#vertexshader').text(),
+				fragmentShader: $('#fragmentshader').text()
+			});
+
+		let mesh = new THREE.Mesh( geo, material );
+			//mesh.position.set(-0.5, -0.5, -0.5);
+			//mesh.scale.set(0.0001, 0.0001, 0.0001);
+
+		scene.add(mesh);
+
+		return mesh;
 	}
 
 
@@ -285,22 +230,19 @@ function createMesh(geo) {
 					// let root = new THREE.Vector3();
 						root = find_root(vertices, root);
 
-					let frontier = traverse(root, a_map); // -> Traverse (from vertex[0])
+					let res = traverse(root, a_map); // -> Traverse (from vertex[0])
 				console.log('Done in ' + (Date.now() - start_time) + "ms");
 
-				resolve(frontier);
+				resolve(res);
 	        }
 	    );
 
-	    p1.then(
-	        function(frontier) {
+	    return p1.then((res) => {
 	        	console.log('Initializing materials..');
-	        	console.log(verts.length / 3, frontier.size);
 	            
-	            init(frontier, geo, verts); // Setup materials
-	            
-	            console.log('Starting render loop..');
-	            requestAnimFrame(update); // Kick off render loop
+	            let mesh = init(res, geo, verts); // Setup materials
+
+				return { mesh: mesh, max: res.max};
 	        })
 	    .catch(
 	        function(reason) {
@@ -308,55 +250,61 @@ function createMesh(geo) {
 	        });
 	}
 
-	bfs(adjacency_map, vertices, geo); // Kick-Off the whole thing
+	bfs(adjacency_map, vertices, geo) // Kick-Off the whole thing
+		.then(({mesh, max}) => {
+			console.log('animate');
+			// Animation Speed
+			// Provide in Frames
+			function setStep (frames) {
+				return {
+					tick: 1 / frames,
+					front: Math.floor(max / frames)
+				};
+			}
 
-	// Animation Speed
-	// Provide in Frames
-	function setStep (frames) {
-		return {
-			tick: 1 / frames,
-			front: Math.floor(vertex_count / frames)
-		};
-	}
+			let tickr = setStep(500);
+			
+			let frontier = 0;
+			let rotate = 0;
+			let theta = 0;
 
-	let tickr = setStep(500);
+			// Reset frontier
+			$(window).keypress(function (e) {
+			if (e.keyCode === 0 || e.keyCode === 32) {
+				e.preventDefault()
+				console.log('reset');
+				frontier = 0;
+			}
+			});
 
-	
-	let frontier = 0;
-	let rotate = 0;
-	let theta = 0;
+			console.log('max', max);
 
-	// Reset frontier
-	$(window).keypress(function (e) {
-	  if (e.keyCode === 0 || e.keyCode === 32) {
-	    e.preventDefault()
-	    console.log('reset');
-	    frontier = 0;
-	  }
-	});
+			// draw!
+			function update() {
+				stats.begin();
+			
+				renderer.render(scene, camera);
 
-	// draw!
-	function update() {
-		stats.begin();
-	
-		renderer.render(scene, camera);
+				// rotate += 0.005;
+				mesh.rotation.set(rotate,rotate,rotate);
 
-		// rotate += 0.005;
-		mesh.rotation.set(rotate,rotate,rotate);
+				controls.update(); // Trackball Update
 
-		controls.update(); // Trackball Update
+				// theta += 0.01;
+				frontier += tickr.front;
+				// frontier += 1;
 
-		// theta += 0.01;
-		frontier += tickr.front;
-		// frontier += 1;
+				// To GPU
+				mesh.material.uniforms.u_frontier.value = frontier % max;
+				u_camera_pos = camera.position;
 
-		// To GPU
-		uniforms.u_frontier.value = frontier % (vertex_count);
-		u_camera_pos = camera.position;
+				stats.end();
+				
+				// Set up the next call
+				requestAnimFrame(update);
+			}
 
-		stats.end();
-		
-		// Set up the next call
-		requestAnimFrame(update);
-	}
+			console.log('Starting render loop..');
+			requestAnimFrame(update); // Kick off render loop
+		});
 }

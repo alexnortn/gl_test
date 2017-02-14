@@ -27,10 +27,10 @@
 		#endif
 		
 		uniform float u_frontier;
-		uniform float u_length;
+		// uniform float u_max_hop;
 		uniform float u_feather;
 		
-		attribute float a_threshold;
+		attribute float a_hops;
 
 		uniform vec3 u_camera_pos;
 		
@@ -43,30 +43,14 @@
 			return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
 		}
 
-		// Return minimum value wrt circular-distance from frontier
-		float circle_dist(float a, float b, float length) {
-			if (a > b) {
-				a = a + b; // swap
-				b = a - b;
-				a = a - b;
-			}
-			
-			return min((b - a), (a + length - b));
-		}
-		
 		void main() {
-
-			int u_frontier_int = int(u_frontier);
-			int u_uniform_int = int(u_length);
-			int u_feather_int = int(u_feather);
-			int a_threshold_int = int(a_threshold);
-
 			float amplitude = 0.0; // Create a swelling effect during signal prop
 
 			v_Normal = normal;
 			v_From_Cam = u_camera_pos - position;
 
-			float offset = circle_dist(a_threshold, u_frontier, u_length);
+			float offset = abs(u_frontier - a_hops);
+			
 			float r = 0.0;
 
 			if (offset < u_feather) {
@@ -164,6 +148,8 @@
 	<script src="../js/ctm/lzma.js"></script>
 	<script src="../js/ctm/ctm.js"></script>
 	<script src="../js/ctm/CTMLoader.js"></script>
+
+	<script src="../js/bft.js"></script>
 
 	<script src="../js/animationController_neuron.js"></script>
 	
