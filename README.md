@@ -8,6 +8,8 @@ WebGL + GLSL computational geometry + shader tests & experiments
 - cd into repo, start Python web server:
 - Python -m SimpleHTTPServer 8000
 
+<br>
+
 **Experiments**
 - /BFS
 - /Cells
