@@ -140,7 +140,7 @@ function createMesh(geo) {
 		},
 		u_feather: {
 			type: 'f', // a float
-			value: 10 // 10% feather
+			value: 25 // 10% feather
 		},
 		u_camera_pos: {
 			type: 'v3', // a float
@@ -208,10 +208,21 @@ function createMesh(geo) {
 
 		controls.update(); // Trackball Update
 
-		frontier -= 1;
+		frontier -= 10;
 		
 		if (frontier < 0) {
-			frontier = b_max;
+			function get_index() {
+				let index = Math.round(Math.random() * vertex_count);
+				if (map[index] < 0) {
+					console.log('lil val');
+					return get_index();
+				}
+
+				console.log('returning', map[index]);
+				return index;
+			}
+
+			backprop(get_index());
 		}
 
 		// To GPU
@@ -226,24 +237,24 @@ function createMesh(geo) {
 	requestAnimationFrame(update); // Kick off render loop
 
 	// click trigger backprop from selected vertex
-	{
-		const raycaster = new THREE.Raycaster();
-		const mouse = new THREE.Vector2();
+	// {
+	// 	const raycaster = new THREE.Raycaster();
+	// 	const mouse = new THREE.Vector2();
 
-		addEventListener('click', ({clientX, clientY}) => {
-			mouse.x = clientX / WIDTH * 2 - 1;
-			mouse.y = -clientY / HEIGHT * 2 + 1;
+	// 	addEventListener('click', ({clientX, clientY}) => {
+	// 		mouse.x = clientX / WIDTH * 2 - 1;
+	// 		mouse.y = -clientY / HEIGHT * 2 + 1;
 
-			raycaster.setFromCamera(mouse, camera);
-			const intersects = raycaster.intersectObject(mesh);
+	// 		raycaster.setFromCamera(mouse, camera);
+	// 		const intersects = raycaster.intersectObject(mesh);
 
-			if (intersects.length) {
-				const {faceIndex} = intersects[0];
-				const vertex1 = faces[faceIndex * 3]; // choose one of the vertices from the selected face
-				backprop(vertex1);
-			}
-		});
-	}
+	// 		if (intersects.length) {
+	// 			const {faceIndex} = intersects[0];
+	// 			const vertex1 = faces[faceIndex * 3]; // choose one of the vertices from the selected face
+	// 			backprop(vertex1);
+	// 		}
+	// 	});
+	// }
 
 	function backprop(index) {
 		let start_time = performance.now();
