@@ -26,7 +26,9 @@ const FAR = 1000000000;
 const container = document.querySelector('#container');
 
 // Create a WebGL renderer, camera and scene
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({
+	antialias: true
+});
 const camera =
 	new THREE.PerspectiveCamera(
 		VIEW_ANGLE,
@@ -52,6 +54,7 @@ renderer.setSize(WIDTH, HEIGHT);
 // Attach the renderer-supplied
 // DOM element.
 container.appendChild(renderer.domElement);
+renderer.domElement.style.display = 'block'; // by default, most browsers use inline-block, creates scrollbars for fullscreen
 
 
 // Setup trackballControls
