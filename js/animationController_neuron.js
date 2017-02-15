@@ -140,7 +140,7 @@ function createMesh(geo) {
 		},
 		u_feather: {
 			type: 'f', // a float
-			value: 25 // 10% feather
+			value: 250 // 10% feather
 		},
 		u_camera_pos: {
 			type: 'v3', // a float
@@ -208,7 +208,7 @@ function createMesh(geo) {
 
 		controls.update(); // Trackball Update
 
-		frontier -= 10;
+		frontier -= 5;
 		
 		if (frontier < 0) {
 			function get_index() {
