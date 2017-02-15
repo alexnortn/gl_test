@@ -170,7 +170,7 @@ function createMesh(geo) {
 	let root_vec = new THREE.Vector3(20000, 165000, 109000);
 
 	let start_time = performance.now();
-	let root_idx = 193;//nearest_vert(vertices, root_vec);
+	let root_idx = 21628;//nearest_vert(vertices, root_vec);
 	console.log('nearest_vert time ', performance.now() - start_time, "ms");
 
 	start_time = performance.now();
