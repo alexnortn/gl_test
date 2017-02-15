@@ -147,7 +147,7 @@ function createMesh(geo) {
 		},
 		u_feather: {
 			type: 'f', // a float
-			value: 250 // 10% feather
+			value: 200 // 10% feather
 		},
 		u_camera_pos: {
 			type: 'v3', // a float
@@ -219,20 +219,21 @@ function createMesh(geo) {
 		
 		// move frontiers
 		for (let i = 0; i < MAX_BACKPROP; i++){
-			frontier[i] -= 5;
+			frontier[i] -= 15;
 			if (frontier[i] < (-1 * mesh.material.uniforms.u_feather.value)) {
 				function get_index() {
 					let index = Math.round(Math.random() * vertex_count);
-					if (map[index] < 0) {
-						console.log('lil val');
+					if (map[index] < 0 || map[index] < 300) {
 						return get_index();
 					}
 
-					console.log('returning', map[index]);
 					return index;
 				}
 
-				backprop(get_index());
+				setTimeout( () => {
+					backprop(get_index());
+					console.log('propin');
+				}, Math.random() * 500000);
 			}
 		}
 
