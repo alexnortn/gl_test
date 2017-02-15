@@ -3,7 +3,7 @@ function bft(start, a_map, node_count) { // start: index
     let hop_map = new Map();
     let visited = new Uint8Array(node_count);
 
-    visited[start] = 1;
+    visited[start] = 1; // Hashmap: 0 -> False; 1 -> True
 
     let frontier = [start];
     let next_frontier = [];

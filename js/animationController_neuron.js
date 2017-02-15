@@ -58,13 +58,12 @@ container.appendChild(renderer.domElement);
 let controls = new THREE.TrackballControls( camera ); // Only interact when over canvas
 
 
-// Light for test Material
-// const pointLight = new THREE.PointLight(0xFFFFFF);
-// 	  pointLight.position.x = 10;
-// 	  pointLight.position.y = 50;
-// 	  pointLight.position.z = 130;
-
-// scene.add(pointLight);
+// Get cell_list from Eyewire API
+	// (then) Specify <cell> from cell list
+	// (then) Get <cell> metadata
+		// Task list, position, etc
+	// (then) Get <cell> from museum API
+	// (then) Load cell locally..
 
 
 // Load CTM neuron
@@ -114,7 +113,7 @@ function createMesh(geo) {
 	
 	// Find closest vertex to specified point (vec3)
 	// verts -> bufffer: [size 3] · loc -> vec3
-	function find_root(verts, loc) {
+	function nearest_vert(verts, loc) {
 		let v_i;
 		let min_dist2 = Infinity;
 		let v = { "x":0, "y":0, "z":0 };
@@ -159,6 +158,7 @@ function createMesh(geo) {
 	}
 
 	function initMesh(hop_map, geo, verts) {
+		// Frontier
 		let frontier_buffer = new Float32Array(verts.length / 3);
 
 		frontier_buffer.fill(-1000); // for discontinuity
@@ -169,9 +169,7 @@ function createMesh(geo) {
 
 		geo.addAttribute( 'a_hops', new THREE.BufferAttribute( frontier_buffer, 1 ) );
 
-		// Test Material
-		// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
-
+		// Material
 		let material =
 			new THREE.ShaderMaterial({
 				uniforms:     	uniforms,
@@ -180,8 +178,6 @@ function createMesh(geo) {
 			});
 
 		let mesh = new THREE.Mesh( geo, material );
-			//mesh.position.set(-0.5, -0.5, -0.5);
-			//mesh.scale.set(0.0001, 0.0001, 0.0001);
 
 		scene.add(mesh);
 
@@ -191,8 +187,8 @@ function createMesh(geo) {
 	let root_vec = new THREE.Vector3(20000, 165000, 109000);
 
 	let start_time = performance.now();
-	let root_idx = find_root(vertices, root_vec);
-	console.log('find_root time ', performance.now() - start_time, "ms");
+	let root_idx = nearest_vert(vertices, root_vec);
+	console.log('nearest_vert time ', performance.now() - start_time, "ms");
 
 	start_time = performance.now();
 	let {map, max} = bft(root_idx, adjacency_map, vertex_count); // -> Traverse (from vertex[0])
@@ -200,18 +196,19 @@ function createMesh(geo) {
 
 	let mesh = initMesh(map, geo, vertices); // Setup materials
 
-	// Animation Speed
-	// Provide in Frames
-	function setStep (frames) {
-		return {
-			tick: 1 / frames,
-			front: Math.floor(max / frames)
-		};
-	}
 
-	let tickr = setStep(600);
+	// Backpropagation
+	let synapse_loc = new THREE.Vector3(100000, 50000, 0);
+	let synapse_idx = nearest_vert(vertices, synapse_loc);
+
+	start_time = performance.now();
+	let {backprop_buffer, b_max} = bbft(synapse_idx, adjacency_map, map, vertex_count);
+	console.log('bbft time ', performance.now() - start_time, "ms");
+
+	geo.addAttribute( 'a_backprop', new THREE.BufferAttribute( backprop_buffer, 1 ) );
 	
-	let frontier = 0;
+	let frontier = b_max;
+	
 	let rotate = 0;
 	let theta = 0;
 
@@ -235,9 +232,11 @@ function createMesh(geo) {
 
 		controls.update(); // Trackball Update
 
-		// theta += 0.01;
-		// frontier += tickr.front;
-		frontier += 1;
+		frontier -= 1;
+		
+		if (frontier < 0) {
+			frontier = b_max;
+		}
 
 		// To GPU
 		mesh.material.uniforms.u_frontier.value = frontier % max;
@@ -245,10 +244,9 @@ function createMesh(geo) {
 
 		stats.end();
 		
-		// Set up the next call
 		requestAnimFrame(update);
 	}
 
-	console.log('Starting render loop..');
 	requestAnimFrame(update); // Kick off render loop
+
 }
