@@ -1,17 +1,5 @@
 let frameRate = 60;
 
-// @see http://paulirish.com/2011/requestanimationframe-for-smart-animating/
-window.requestAnimFrame = (function(){
-  return  window.requestAnimationFrame       || 
-          window.webkitRequestAnimationFrame || 
-          window.mozRequestAnimationFrame    || 
-          window.oRequestAnimationFrame      || 
-          window.msRequestAnimationFrame     || 
-          function(/* function */ callback, /* DOMElement */ element){
-            window.setTimeout(callback, 1000 / frameRate);
-          };
-})();
-
 // Set the scene size.
 const WIDTH = window.innerWidth;
 const HEIGHT = window.innerHeight;
@@ -160,17 +148,9 @@ function createMesh(geo) {
 		}
 	}
 
-	function initMesh(hop_map, geo, verts) {
+	function initMesh(hop_map, geo) {
 		// Frontier
-		let frontier_buffer = new Float32Array(verts.length / 3);
-
-		frontier_buffer.fill(-1000); // for discontinuity
-		
-		for (let [node, hops] of hop_map) {
-			frontier_buffer[node] = hops;
-		}
-
-		geo.addAttribute( 'a_hops', new THREE.BufferAttribute( frontier_buffer, 1 ) );
+		geo.addAttribute('a_hops', new THREE.BufferAttribute(hop_map, 1));
 
 		// Material
 		let material =
@@ -190,26 +170,20 @@ function createMesh(geo) {
 	let root_vec = new THREE.Vector3(20000, 165000, 109000);
 
 	let start_time = performance.now();
-	let root_idx = nearest_vert(vertices, root_vec);
+	let root_idx = 193;//nearest_vert(vertices, root_vec);
 	console.log('nearest_vert time ', performance.now() - start_time, "ms");
 
 	start_time = performance.now();
 	let {map, max} = bft(root_idx, adjacency_map, vertex_count); // -> Traverse (from vertex[0])
 	console.log('bft time ', performance.now() - start_time, "ms");
 
-	let mesh = initMesh(map, geo, vertices); // Setup materials
+	let mesh = initMesh(map, geo); // Setup materials
 
-
-	// Backpropagation
-	let synapse_loc = new THREE.Vector3(100000, 50000, 0);
-	let synapse_idx = nearest_vert(vertices, synapse_loc);
-
-	start_time = performance.now();
-	let {backprop_buffer, b_max} = bbft(synapse_idx, adjacency_map, map, vertex_count);
-	console.log('bbft time ', performance.now() - start_time, "ms");
+	let backprop_buffer = new Float32Array(vertex_count);
 
 	geo.addAttribute( 'a_backprop', new THREE.BufferAttribute( backprop_buffer, 1 ) );
 	
+	let b_max = 0;
 	let frontier = b_max;
 	
 	let rotate = 0;
@@ -230,7 +204,6 @@ function createMesh(geo) {
 	
 		renderer.render(scene, camera);
 
-		// rotate += 0.005;
 		// mesh.rotation.set(rotate,rotate,rotate);
 
 		controls.update(); // Trackball Update
@@ -247,9 +220,36 @@ function createMesh(geo) {
 
 		stats.end();
 		
-		requestAnimFrame(update);
+		requestAnimationFrame(update);
 	}
 
-	requestAnimFrame(update); // Kick off render loop
+	requestAnimationFrame(update); // Kick off render loop
 
+	// click trigger backprop from selected vertex
+	{
+		const raycaster = new THREE.Raycaster();
+		const mouse = new THREE.Vector2();
+
+		addEventListener('click', ({clientX, clientY}) => {
+			mouse.x = clientX / WIDTH * 2 - 1;
+			mouse.y = -clientY / HEIGHT * 2 + 1;
+
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObject(mesh);
+
+			if (intersects.length) {
+				const {faceIndex} = intersects[0];
+				const vertex1 = faces[faceIndex * 3]; // choose one of the vertices from the selected face
+				backprop(vertex1);
+			}
+		});
+	}
+
+	function backprop(index) {
+		let start_time = performance.now();
+		b_max = bbft(index, adjacency_map, map, vertex_count, geo.attributes.a_backprop.array); // writes into backprop array
+		console.log('bbft time ', performance.now() - start_time, "ms");
+		frontier = b_max;
+		geo.attributes.a_backprop.needsUpdate = true;
+	}
 }
