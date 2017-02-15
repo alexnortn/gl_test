@@ -82,6 +82,8 @@ function createMesh(geo) {
 	const vertices = geo.getAttribute('position').array; // itemSize: 3 | (lookup -> 3 * index: i, i+1, i+2)
 	const vertex_count = vertices.length / 3;
 	const faces = geo.index.array; // vertex -> index | triangles
+
+	const s1 = performance.now();
 	
 	// Setup Adjacency Map
 	const adjacency_map = new Map();
@@ -103,6 +105,12 @@ function createMesh(geo) {
 			adjacency_map.get(v3).add(v2).add(v1);
 		}
 	}
+
+	for (let [key, val] of adjacency_map) {
+		adjacency_map.set(key, [...adjacency_map.get(key)]);
+	}
+
+	console.log('adjacency_map time', performance.now() - s1, 'ms');
 	
 	// Find closest vertex to specified point (vec3)
 	// verts -> bufffer: [size 3] · loc -> vec3
