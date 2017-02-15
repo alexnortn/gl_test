@@ -210,7 +210,7 @@ function createMesh(geo) {
 
 		frontier -= 5;
 		
-		if (frontier < 0) {
+		if (frontier < (-1 * mesh.material.uniforms.u_feather.value)) {
 			function get_index() {
 				let index = Math.round(Math.random() * vertex_count);
 				if (map[index] < 0) {
