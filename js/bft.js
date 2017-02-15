@@ -1,4 +1,4 @@
-function traverse(start, a_map) { // start: index
+function bft(start, a_map) { // start: index
     let hops = 0;  	// Frontier Levels
     let hop_map = new Map();
     let visited = new Set([start]);

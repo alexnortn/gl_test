@@ -67,32 +67,6 @@ let controls = new THREE.TrackballControls( camera ); // Only interact when over
 // scene.add(pointLight);
 
 
-// Run neuron segmentation 
-// Probably calculate these locally, -> What about those meshes from Chris?
-// serve 'good' meshes
-// let myWorker = new MCWorker();
-
-// // load segmentation
-// fetch('../volume/segmentation').then((data) => {
-//     return data.arrayBuffer();
-// }).then((ab) => {
-//     segmentation = new Uint16Array(ab);
-// }).then(() => {
-//     return myWorker.loadVolume(segmentation); // Load segmentation
-// }).then((returned_segmentation) => {
-//     segmentation = returned_segmentation; 	  // Receive segmentation
-//     return myWorker.generateMesh(910); 		  // Generate mesh
-// }).then(({triangles, positions, normals}) => {
-//     const geo = new THREE.BufferGeometry();   // Generate geometry
-// 	      geo.setIndex( new THREE.BufferAttribute(triangles, 1 ) );
-// 	      geo.addAttribute('position', new THREE.BufferAttribute(positions, 3));
-// 	      geo.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
-// 	      geo.normalizeNormals();
-
-//     return geo;
-// }).then(createMesh);
-
-
 // Load CTM neuron
 let loader = new THREE.CTMLoader();
 	loader.load( "../cells/10010.ctm",   function( geometry ) {
@@ -129,8 +103,6 @@ function createMesh(geo) {
 			adjacency_map.get(v3).add(v2).add(v1);
 		}
 	}
-
-	const center = calculateMeshCenter(vertices);
 	
 	// Find closest vertex to specified point (vec3)
 	// verts -> bufffer: [size 3] · loc -> vec3
@@ -158,38 +130,36 @@ function createMesh(geo) {
 		return (v_i - 2) / 3; // Account for 0 offset
 	}
 
-	function init(res, geo, verts) {
+	// Materials + GPU Stuff		
+	let uniforms = {
+		u_amplitude: {
+			type: 'f', // a float
+			value: 0.0
+		},
+		u_frontier: {
+			type: 'f', // a float
+			value: 0.0
+		},
+		u_feather: {
+			type: 'f', // a float
+			value: 10 // 10% feather
+		},
+		u_camera_pos: {
+			type: 'v3', // a float
+			value:new THREE.Vector3()
+		}
+	}
+
+	function initMesh(hop_map, geo, verts) {
 		let frontier_buffer = new Float32Array(verts.length / 3);
 
 		frontier_buffer.fill(-1000); // for discontinuity
-
-		let {map, max} = res;
 		
-		for (let [node, hops] of map.entries()) {
+		for (let [node, hops] of hop_map) {
 			frontier_buffer[node] = hops;
 		}
 
 		geo.addAttribute( 'a_hops', new THREE.BufferAttribute( frontier_buffer, 1 ) );
-
-		// Materials + GPU Stuff		
-		let uniforms = {
-			u_amplitude: {
-				type: 'f', // a float
-				value: 0.0
-			},
-			u_frontier: {
-				type: 'f', // a float
-				value: 0.0
-			},
-			u_feather: {
-				type: 'f', // a float
-				value: 10 // 10% feather
-			},
-			u_camera_pos: {
-				type: 'v3', // a float
-				value:new THREE.Vector3()
-			}
-		}
 
 		// Test Material
 		// let material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
@@ -210,95 +180,67 @@ function createMesh(geo) {
 		return mesh;
 	}
 
+	let root_vec = new THREE.Vector3(20000, 165000, 109000);
 
-	// Wait for traversal to finish before kicking off animation
-	function bfs(a_map, verts, geo) {
-	    let p1 = new Promise(
-	        function(resolve, reject) {
-	        	// When traverse() completes --> resolve() promise
-				console.log('Working on ' + (vertex_count) + ' vertices');
-					let start_time = Date.now();
+	let start_time = performance.now();
+	let root_idx = find_root(vertices, root_vec);
+	console.log('find_root time ', performance.now() - start_time, "ms");
 
-					// let root = new THREE.Vector3(101102.859375,138156.84375,50329.87109375);
-					let root = new THREE.Vector3(20000, 165000, 109000);
-					// let root = new THREE.Vector3();
-						root = find_root(vertices, root);
+	start_time = performance.now();
+	let {map, max} = bft(root_idx, adjacency_map, vertex_count); // -> Traverse (from vertex[0])
+	console.log('bft time ', performance.now() - start_time, "ms");
 
-					let res = traverse(root, a_map); // -> Traverse (from vertex[0])
-				console.log('Done in ' + (Date.now() - start_time) + "ms");
+	let mesh = initMesh(map, geo, vertices); // Setup materials
 
-				resolve(res);
-	        }
-	    );
-
-	    return p1.then((res) => {
-	        	console.log('Initializing materials..');
-	            
-	            let mesh = init(res, geo, verts); // Setup materials
-
-				return { mesh: mesh, max: res.max};
-	        })
-	    .catch(
-	        function(reason) {
-	            console.log('Handle rejected promise ('+reason+') here.');
-	        });
+	// Animation Speed
+	// Provide in Frames
+	function setStep (frames) {
+		return {
+			tick: 1 / frames,
+			front: Math.floor(max / frames)
+		};
 	}
 
-	bfs(adjacency_map, vertices, geo) // Kick-Off the whole thing
-		.then(({mesh, max}) => {
-			console.log('animate');
-			// Animation Speed
-			// Provide in Frames
-			function setStep (frames) {
-				return {
-					tick: 1 / frames,
-					front: Math.floor(max / frames)
-				};
-			}
+	let tickr = setStep(600);
+	
+	let frontier = 0;
+	let rotate = 0;
+	let theta = 0;
 
-			let tickr = setStep(600);
-			
-			let frontier = 0;
-			let rotate = 0;
-			let theta = 0;
+	// Reset frontier
+	$(window).keypress((e) => {
+		if (e.keyCode === 0 || e.keyCode === 32) {
+			e.preventDefault()
+			console.log('reset');
+			frontier = 0;
+		}
+	});
 
-			// Reset frontier
-			$(window).keypress(function (e) {
-			if (e.keyCode === 0 || e.keyCode === 32) {
-				e.preventDefault()
-				console.log('reset');
-				frontier = 0;
-			}
-			});
+	// draw!
+	function update() {
+		stats.begin();
+	
+		renderer.render(scene, camera);
 
-			console.log('max', max);
+		// rotate += 0.005;
+		// mesh.rotation.set(rotate,rotate,rotate);
 
-			// draw!
-			function update() {
-				stats.begin();
-			
-				renderer.render(scene, camera);
+		controls.update(); // Trackball Update
 
-				// rotate += 0.005;
-				mesh.rotation.set(rotate,rotate,rotate);
+		// theta += 0.01;
+		// frontier += tickr.front;
+		frontier += 1;
 
-				controls.update(); // Trackball Update
+		// To GPU
+		mesh.material.uniforms.u_frontier.value = frontier % max;
+		u_camera_pos = new THREE.Vector3(-1, -1, -1);
 
-				// theta += 0.01;
-				// frontier += tickr.front;
-				frontier += 1;
+		stats.end();
+		
+		// Set up the next call
+		requestAnimFrame(update);
+	}
 
-				// To GPU
-				mesh.material.uniforms.u_frontier.value = frontier % max;
-				u_camera_pos = camera.position;
-
-				stats.end();
-				
-				// Set up the next call
-				requestAnimFrame(update);
-			}
-
-			console.log('Starting render loop..');
-			requestAnimFrame(update); // Kick off render loop
-		});
+	console.log('Starting render loop..');
+	requestAnimFrame(update); // Kick off render loop
 }
