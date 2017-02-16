@@ -192,6 +192,8 @@ function createMesh(geo) {
 	
 	let b_max = new Uint32Array(MAX_BACKPROP);
 	let frontier = new Float32Array(MAX_BACKPROP);
+
+	let waiting = new Uint8Array(MAX_BACKPROP);
 	
 	let rotate = 0;
 	let theta = 0;
@@ -219,7 +221,12 @@ function createMesh(geo) {
 		
 		// move frontiers
 		for (let i = 0; i < MAX_BACKPROP; i++){
-			frontier[i] -= 15;
+			frontier[i] -= 10;
+
+			if (waiting[i]) {
+				continue;
+			}
+
 			if (frontier[i] < (-1 * mesh.material.uniforms.u_feather.value)) {
 				function get_index() {
 					let index = Math.round(Math.random() * vertex_count);
@@ -230,10 +237,12 @@ function createMesh(geo) {
 					return index;
 				}
 
-				setTimeout( () => {
+				const startt = performance.now();
+				waiting[i] = 1;
+				setTimeout(() => {
+					waiting[i] = 0;
 					backprop(get_index());
-					console.log('propin');
-				}, Math.random() * 500000);
+				}, Math.random() * 500);
 			}
 		}
 
@@ -289,6 +298,6 @@ function createMesh(geo) {
 		frontier[bp_offset] = b_max;
 		geo.attributes.a_backprop.needsUpdate = true;
 
-		bp_offset = (bp_offset + 1) % 4;
+		bp_offset = (bp_offset + 1) % MAX_BACKPROP;
 	}
 }
