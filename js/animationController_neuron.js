@@ -230,7 +230,7 @@ function createMesh(geo) {
 			if (frontier[i] < (-1 * mesh.material.uniforms.u_feather.value)) {
 				function get_index() {
 					let index = Math.round(Math.random() * vertex_count);
-					if (map[index] < 0 || map[index] < 300) {
+					if (map[index] < 0 || map[index] < 200) {
 						return get_index();
 					}
 
