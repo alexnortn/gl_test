@@ -34,7 +34,7 @@ document.body.appendChild( stats.dom );
 
 // Add the camera to the scene.
 scene.add(camera);
-camera.position.z = 1000000;
+// camera.position.z = 1000000;
 
 // Start the renderer.
 renderer.setSize(WIDTH, HEIGHT);
@@ -47,6 +47,8 @@ renderer.domElement.style.display = 'block'; // by default, most browsers use in
 
 // Setup trackballControls
 let controls = new THREE.TrackballControls( camera ); // Only interact when over canvas
+camera.position.set(-194536.51784707283, 184329.38148911536, 168343.49533261952);
+controls.target.set(56825.99513772479, 144964.66253099282, 146510.9148580572);
 
 
 // Get cell_list from Eyewire API
@@ -128,6 +130,11 @@ function createMesh(geo) {
 		return (v_i - 2) / 3; // Account for 0 offset
 	}
 
+	const MAX_BACKPROP = 4;
+
+	let frontiers = new Float32Array(MAX_BACKPROP);
+	frontiers.fill(-100000);
+
 	// Materials + GPU Stuff		
 	let uniforms = {
 		u_amplitude: {
@@ -135,12 +142,12 @@ function createMesh(geo) {
 			value: 0.0
 		},
 		u_frontier: {
-			type: 'f', // a float
-			value: 0.0
+			type: 'fv1', // a float
+			value: frontiers
 		},
 		u_feather: {
 			type: 'f', // a float
-			value: 250 // 10% feather
+			value: 200 // 10% feather
 		},
 		u_camera_pos: {
 			type: 'v3', // a float
@@ -179,12 +186,12 @@ function createMesh(geo) {
 
 	let mesh = initMesh(map, geo); // Setup materials
 
-	let backprop_buffer = new Float32Array(vertex_count);
+	let backprop_buffer = new Float32Array(vertex_count * 4);
 
-	geo.addAttribute( 'a_backprop', new THREE.BufferAttribute( backprop_buffer, 1 ) );
+	geo.addAttribute( 'a_backprop', new THREE.BufferAttribute( backprop_buffer, 4 ) );
 	
-	let b_max = 0;
-	let frontier = b_max;
+	let b_max = new Uint32Array(MAX_BACKPROP);
+	let frontier = new Float32Array(MAX_BACKPROP);
 	
 	let rotate = 0;
 	let theta = 0;
@@ -208,25 +215,35 @@ function createMesh(geo) {
 
 		controls.update(); // Trackball Update
 
-		frontier -= 5;
+		// frontier -= 5;
 		
-		if (frontier < (-1 * mesh.material.uniforms.u_feather.value)) {
-			function get_index() {
-				let index = Math.round(Math.random() * vertex_count);
-				if (map[index] < 0) {
-					console.log('lil val');
-					return get_index();
+		// move frontiers
+		for (let i = 0; i < MAX_BACKPROP; i++){
+			frontier[i] -= 15;
+			if (frontier[i] < (-1 * mesh.material.uniforms.u_feather.value)) {
+				function get_index() {
+					let index = Math.round(Math.random() * vertex_count);
+					if (map[index] < 0 || map[index] < 300) {
+						return get_index();
+					}
+
+					return index;
 				}
 
-				console.log('returning', map[index]);
-				return index;
+				setTimeout( () => {
+					backprop(get_index());
+					console.log('propin');
+				}, Math.random() * 500000);
 			}
-
-			backprop(get_index());
 		}
 
+
 		// To GPU
-		mesh.material.uniforms.u_frontier.value = frontier % max;
+		for (let i = 0; i < MAX_BACKPROP; i++){
+			mesh.material.uniforms.u_frontier.value[i] = frontier[i];
+		}
+		
+
 		u_camera_pos = new THREE.Vector3(-1, -1, -1);
 
 		stats.end();
@@ -236,31 +253,42 @@ function createMesh(geo) {
 
 	requestAnimationFrame(update); // Kick off render loop
 
+
 	// click trigger backprop from selected vertex
-	// {
-	// 	const raycaster = new THREE.Raycaster();
-	// 	const mouse = new THREE.Vector2();
+	{
+		const raycaster = new THREE.Raycaster();
+		const mouse = new THREE.Vector2();
 
-	// 	addEventListener('click', ({clientX, clientY}) => {
-	// 		mouse.x = clientX / WIDTH * 2 - 1;
-	// 		mouse.y = -clientY / HEIGHT * 2 + 1;
+		addEventListener('click', ({clientX, clientY, shiftKey}) => {
+			if (!shiftKey) {
+				return;
+			}
 
-	// 		raycaster.setFromCamera(mouse, camera);
-	// 		const intersects = raycaster.intersectObject(mesh);
+			mouse.x = clientX / WIDTH * 2 - 1;
+			mouse.y = -clientY / HEIGHT * 2 + 1;
 
-	// 		if (intersects.length) {
-	// 			const {faceIndex} = intersects[0];
-	// 			const vertex1 = faces[faceIndex * 3]; // choose one of the vertices from the selected face
-	// 			backprop(vertex1);
-	// 		}
-	// 	});
-	// }
+			raycaster.setFromCamera(mouse, camera);
+			const intersects = raycaster.intersectObject(mesh);
 
+			if (intersects.length) {
+				const {faceIndex} = intersects[0];
+				const vertex1 = faces[faceIndex * 3]; // choose one of the vertices from the selected face
+
+				if (map[vertex1] >= 0) {
+					backprop(vertex1);
+				}
+			}
+		});
+	}
+
+	let bp_offset = 0;
 	function backprop(index) {
 		let start_time = performance.now();
-		b_max = bbft(index, adjacency_map, map, vertex_count, geo.attributes.a_backprop.array); // writes into backprop array
+		b_max = bbft(index, adjacency_map, map, vertex_count, geo.attributes.a_backprop.array, bp_offset); // writes into backprop array
 		console.log('bbft time ', performance.now() - start_time, "ms");
-		frontier = b_max;
+		frontier[bp_offset] = b_max;
 		geo.attributes.a_backprop.needsUpdate = true;
+
+		bp_offset = (bp_offset + 1) % 4;
 	}
 }

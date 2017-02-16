@@ -1,8 +1,13 @@
-function bbft(start, a_map, h_map, node_count, nodes_to_root) { // start: index
+function bbft(start, a_map, h_map, node_count, nodes_to_root, offset) { // start: index
     const max = h_map[start];  	// Start hop levels from root
     let hops = max;
-    
-    nodes_to_root.fill(0);
+
+    const startt = performance.now();
+    const arrLength = nodes_to_root.length;
+    for (let i = nodes_to_root.length - 4 + offset; i >= 0; i -= 4) {
+        nodes_to_root[i] = 0;
+    }
+    console.log('clear time', performance.now() - startt, 'ms');
 
     const visited = new Uint8Array(node_count);
 
@@ -13,7 +18,7 @@ function bbft(start, a_map, h_map, node_count, nodes_to_root) { // start: index
 
     while (hops) {
         for (let node of frontier) {
-            nodes_to_root[node] = 1;
+            nodes_to_root[node * 4 + offset] = 1;
             const c_hop = h_map[node];
             const neighbors = a_map.get(node);
 

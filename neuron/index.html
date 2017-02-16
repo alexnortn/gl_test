@@ -26,12 +26,12 @@
 		precision highp int;
 		#endif
 		
-		uniform float u_frontier;
+		uniform float u_frontier[4];
 		// uniform float u_max_hop;
 		uniform float u_feather;
 		
 		attribute float a_hops;
-		attribute float a_backprop;
+		attribute vec4 a_backprop;
 
 		uniform vec3 u_camera_pos;
 		
@@ -50,13 +50,17 @@
 			v_Normal = normal;
 			v_From_Cam = u_camera_pos - position;
 
-			float offset = abs(u_frontier - a_hops);
-			
+			float offset = 100000.0;
+
+			for (int i = 0; i <= 4; i++) {
+				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop[i]));
+			}
+
 			float r = 0.0;
 
 			if (offset < u_feather) {
-				r = a_backprop == 0.0 ? 0.0 : remap(offset, 0.0, u_feather, 1.0, 0.0);
-				amplitude = r * 100.0; // Experimentally Determined
+				r = remap(offset, 0.0, u_feather, 1.0, 0.0);
+				// amplitude = r * 100.0; // Experimentally Determined
 				// r = 1.0;
 			}
 
