@@ -80,8 +80,8 @@ function createMesh(geo) {
 	// Setup Adjacency Map
 	const adjacency_map = new Map();
 	{
-		for (let i = 0; i < faces.length; i++) {
-			adjacency_map.set(faces[i], adjacency_map.get(faces[i]) || new Set()); // Allocate a new Set, one for each vertex -> ignore duplicates
+		for (let vertex of faces) {
+			adjacency_map.set(vertex, []); // Allocate a new array, one for each vertex -> ignore duplicates
 		}
 
 		let v1, v2, v3;
@@ -91,15 +91,10 @@ function createMesh(geo) {
 			v1 = faces[i];
 			v2 = faces[i+1];
 			v3 = faces[i+2];
-
-			adjacency_map.get(v1).add(v2).add(v3);
-			adjacency_map.get(v2).add(v1).add(v3);
-			adjacency_map.get(v3).add(v2).add(v1);
+			adjacency_map.get(v1).push(v2, v3);
+			adjacency_map.get(v2).push(v1, v3);
+			adjacency_map.get(v3).push(v2, v1);
 		}
-	}
-
-	for (let [key, val] of adjacency_map) {
-		adjacency_map.set(key, [...adjacency_map.get(key)]);
 	}
 
 	console.log('adjacency_map time', performance.now() - s1, 'ms');
