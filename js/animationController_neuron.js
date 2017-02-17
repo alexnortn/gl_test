@@ -11,7 +11,7 @@ const NEAR = 1000;
 const FAR = 1000000000;
 
 // Get the DOM element to attach to
-const container = document.querySelector('#container');
+const container2 = document.querySelector('#container');
 
 // Create a WebGL renderer, camera and scene
 const renderer = new THREE.WebGLRenderer({
@@ -41,7 +41,7 @@ renderer.setSize(WIDTH, HEIGHT);
 
 // Attach the renderer-supplied
 // DOM element.
-container.appendChild(renderer.domElement);
+container2.appendChild(renderer.domElement);
 renderer.domElement.style.display = 'block'; // by default, most browsers use inline-block, creates scrollbars for fullscreen
 
 
