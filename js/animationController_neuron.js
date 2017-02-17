@@ -125,7 +125,7 @@ function createMesh(geo) {
 		return (v_i - 2) / 3; // Account for 0 offset
 	}
 
-	const MAX_BACKPROP = 4;
+	const MAX_BACKPROP = 16;
 
 	let frontiers = new Float32Array(MAX_BACKPROP);
 	frontiers.fill(-100000);
@@ -181,9 +181,15 @@ function createMesh(geo) {
 
 	let mesh = initMesh(map, geo); // Setup materials
 
-	let backprop_buffer = new Float32Array(vertex_count * 4);
+	let backprop_buffer1 = new Float32Array(vertex_count * 4);
+	let backprop_buffer2 = new Float32Array(vertex_count * 4);
+	let backprop_buffer3 = new Float32Array(vertex_count * 4);
+	let backprop_buffer4 = new Float32Array(vertex_count * 4);
 
-	geo.addAttribute( 'a_backprop', new THREE.BufferAttribute( backprop_buffer, 4 ) );
+	geo.addAttribute( 'a_backprop1', new THREE.BufferAttribute( backprop_buffer1, 4 ) );
+	geo.addAttribute( 'a_backprop2', new THREE.BufferAttribute( backprop_buffer2, 4 ) );
+	geo.addAttribute( 'a_backprop3', new THREE.BufferAttribute( backprop_buffer3, 4 ) );
+	geo.addAttribute( 'a_backprop4', new THREE.BufferAttribute( backprop_buffer4, 4 ) );
 	
 	let b_max = new Uint32Array(MAX_BACKPROP);
 	let frontier = new Float32Array(MAX_BACKPROP);
@@ -285,13 +291,20 @@ function createMesh(geo) {
 		});
 	}
 
+	let bp_arr = [geo.attributes.a_backprop1, geo.attributes.a_backprop2, geo.attributes.a_backprop3, geo.attributes.a_backprop4];
+
 	let bp_offset = 0;
 	function backprop(index) {
 		let start_time = performance.now();
-		b_max = bbft(index, adjacency_map, map, vertex_count, geo.attributes.a_backprop.array, bp_offset); // writes into backprop array
+
+		let vec_off = bp_offset % 4;
+
+		let bp_vec = bp_arr[Math.floor(bp_offset / 4)];		
+
+		b_max = bbft(index, adjacency_map, map, vertex_count, bp_vec.array, vec_off); // writes into backprop array
 		console.log('bbft time ', performance.now() - start_time, "ms");
 		frontier[bp_offset] = b_max;
-		geo.attributes.a_backprop.needsUpdate = true;
+		bp_vec.needsUpdate = true;
 
 		bp_offset = (bp_offset + 1) % MAX_BACKPROP;
 	}

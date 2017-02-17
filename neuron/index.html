@@ -26,12 +26,15 @@
 		precision highp int;
 		#endif
 		
-		uniform float u_frontier[4];
+		uniform float u_frontier[16];
 		// uniform float u_max_hop;
 		uniform float u_feather;
 		
 		attribute float a_hops;
-		attribute vec4 a_backprop;
+		attribute vec4 a_backprop1;
+		attribute vec4 a_backprop2;
+		attribute vec4 a_backprop3;
+		attribute vec4 a_backprop4;
 
 		uniform vec3 u_camera_pos;
 		
@@ -53,7 +56,19 @@
 			float offset = 100000.0;
 
 			for (int i = 0; i <= 4; i++) {
-				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop[i]));
+				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop1[i]));
+			}
+
+			for (int i = 0; i <= 4; i++) {
+				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop2[i]));
+			}
+
+			for (int i = 0; i <= 4; i++) {
+				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop3[i]));
+			}
+
+			for (int i = 0; i <= 4; i++) {
+				offset = min(offset, abs(u_frontier[i] - a_hops) + 100000.0 * (1.0 - a_backprop4[i]));
 			}
 
 			float r = 0.0;
