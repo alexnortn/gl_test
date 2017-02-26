@@ -1,4 +1,5 @@
 // 2017 Alex Norton
+// Neural reconstruction data (e2198) parser (csv -> json)
 
 'use strict';
 
