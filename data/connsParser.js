@@ -10,6 +10,7 @@ let connsIn = fs.readFileSync('conns.csv', 'utf8');
 let conns = connsIn.split('\n');
 
 // Assumse conns -> conns ~ [14] ~ [0] -> length
+// Returns Map type 
 function parseConns(conns) {
 	let temp = [];
 	let map = new Map();
@@ -56,26 +57,24 @@ function parseConns(conns) {
 	return map;
 }
 
+// Output cell contacts -> json
 new Promise(function(resolve, reject){
-    resolve(parseConns(conns));
+    resolve(parseConns(conns)); // parse conns.csv (expect Map)
 })
 .then(function(data){
 	let obj = {};
+	let file;
 	function mapToObj(value, key) { 
-		obj[key] = value;
-		let file2 = "parsedData/conns-" + key + ".json";
-		jsonfile.writeFile(file2, value, function (err) {
-		  console.error(err);
-		});
+		obj[key] = value; // Set up object for complete export
+		file = "parsedData/conns-" + key + ".json"; // Individual cell export
+		jsonfile.writeFile(file, value, (error) => { if (error) console.error(err) });
 	}
 
-	data.forEach(mapToObj);
+	data.forEach(mapToObj); // Iterate through conns Map
 	
 	// Write all cell contacts to json
-	let file = 'parsedData/conns.json';
-	jsonfile.writeFile(file, obj, function (err) {
-	  console.error(err);
-	});
+	file = 'parsedData/conns.json'; 
+	jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });
 })
 .catch(function(reason) {
 	console.log('promise rejected for ' + reason);
