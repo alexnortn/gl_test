@@ -15,7 +15,7 @@ let conns = connsIn.split('\n');
 
 let transform = { "x": 16, "y": 16, "z": 22.5 };
 
-// Assumse conns -> conns ~ [14] ~ [0] -> length
+// Assume conns -> conns ~ [14] ~ [0] -> length
 // Returns Map type 
 function parseConns(conns) {
 	let temp = [];
