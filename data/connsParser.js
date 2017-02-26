@@ -1,6 +1,9 @@
 // 2017 Alex Norton
 // Neural reconstruction data (e2198) parser (csv -> json)
 
+// * To Do
+// * Test values with scaling transform [16, 16, 22.5]
+
 'use strict';
 
 let fs = require('fs');
@@ -9,6 +12,8 @@ let jsonfile = require('jsonfile');
 
 let connsIn = fs.readFileSync('conns.csv', 'utf8');
 let conns = connsIn.split('\n');
+
+let transform = { "x": 16, "y": 16, "z": 22.5 };
 
 // Assumse conns -> conns ~ [14] ~ [0] -> length
 // Returns Map type 
@@ -23,24 +28,24 @@ function parseConns(conns) {
 		temp = {
 			"id":    conns[1][index],
 			"area": {
-				"x": parseInt(conns[2][index]),
-				"y": parseInt(conns[3][index]),
-				"z": parseInt(conns[4][index])
+				"x": transform.x * parseInt(conns[2][index]),
+				"y": transform.y * parseInt(conns[3][index]),
+				"z": transform.z * parseInt(conns[4][index])
 			},
 			"centroid": {
-				"x": parseInt(conns[5][index]),
-				"y": parseInt(conns[6][index]),
-				"z": parseInt(conns[7][index])
+				"x": transform.x * parseInt(conns[5][index]),
+				"y": transform.y * parseInt(conns[6][index]),
+				"z": transform.z * parseInt(conns[7][index])
 			},
 			"post": {
-				"x": parseInt(conns[8][index]),
-				"y": parseInt(conns[9][index]),
-				"z": parseInt(conns[10][index])
+				"x": transform.x * parseInt(conns[8][index]),
+				"y": transform.y * parseInt(conns[9][index]),
+				"z": transform.z * parseInt(conns[10][index])
 			},
 			"pre": {
-				"x": parseInt(conns[11][index]),
-				"y": parseInt(conns[12][index]),
-				"z": parseInt(conns[13][index])
+				"x": transform.x * parseInt(conns[11][index]),
+				"y": transform.y * parseInt(conns[12][index]),
+				"z": transform.z * parseInt(conns[13][index])
 			}
 		};
 
@@ -67,14 +72,14 @@ new Promise(function(resolve, reject){
 	let file;
 	function mapToObj(value, key) { 
 		obj[key] = value; // Set up object for complete export
-		file = "parsedData/conns-" + key + ".json"; // Individual cell export
+		file = "parsedDataTransform/conns-" + key + ".json"; // Individual cell export
 		jsonfile.writeFile(file, value, (error) => { if (error) console.error(err) });
 	}
 
 	data.forEach(mapToObj); // Iterate through conns Map
 	
 	// Write all cell contacts to json
-	file = 'parsedData/conns.json'; 
+	file = 'parsedDataTransform/conns.json'; 
 	jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });
 })
 .catch(function(reason) {
