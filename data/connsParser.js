@@ -11,7 +11,12 @@ let jsonfile = require('jsonfile');
 let connsIn = fs.readFileSync('conns.csv', 'utf8');
 let conns = connsIn.split('\n');
 
-let transform = { "x": 16, "y": 16, "z": 22.5 };
+let transform = { "x": 16.5, "y": 16.5, "z": 23 };
+
+// Museum scaling factor
+transform.x *= 2;
+transform.y *= 2;
+transform.z *= 2;
 
 // Assumse conns -> conns ~ [14] ~ [0] -> length
 // Returns Map type 
@@ -24,7 +29,6 @@ function parseConns(conns) {
 
 	conns[0].forEach((item, index) => { 
 		obj = {
-			"id":    		  conns[1][index],
 			"area": {
 				"x": parseInt(conns[2][index])  * transform.x,
 				"y": parseInt(conns[3][index])  * transform.y,
@@ -78,7 +82,7 @@ new Promise(function(resolve, reject){
 .then(function(data) {
 	let file;
 	// Write all cell + contacts to json
-	file = 'parsedDataTransform2/conns.json'; 
+	file = 'parsedDataTransform/conns.json'; 
 	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) });
 
 	// Get cell by id, get contacts with specific cell
@@ -107,7 +111,7 @@ new Promise(function(resolve, reject){
 		obj = {};
 		map.forEach((value, key) => obj[key] = value);
 
-		file = "parsedDataTransform2/conns-" + cellName + ".json"; // Individual cell export
+		file = "parsedDataTransform/conns-" + cellName + ".json"; // Individual cell export
 		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
 	});
 })
