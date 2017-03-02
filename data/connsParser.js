@@ -82,11 +82,11 @@ new Promise(function(resolve, reject){
 })
 .then(function(data) {
 
-	let obj = { "cells": [] };
+	let obj = [];
 
 	// Write each cell contacts to json
 	Object.entries(data).forEach(([cellName, cell]) => {
-		obj.cells.push(cellName);
+		obj.push(cellName);
 	});
 
 	// Write cell list to json
@@ -96,42 +96,42 @@ new Promise(function(resolve, reject){
 	return data;
 
 })
-.then(function(data) {
-	let file;
-	// Write all cell + contacts to json
-	file = 'parsedDataTransform3/conns-list.json'; 
-	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) }); 
+// .then(function(data) {
+// 	let file;
+// 	// Write all cell + contacts to json
+// 	file = 'parsedDataTransform3/conns.json'; 
+// 	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) }); 
 
-	// Get cell by id, get contacts with specific cell
-	// contacts = conns['cell1'].filter((el) => { if (el.id === 'cell2') return el });
+// 	// Get cell by id, get contacts with specific cell
+// 	// contacts = conns['cell1'].filter((el) => { if (el.id === 'cell2') return el });
 
-	return data;
+// 	return data;
 
-})
-.then(function(data) {
-	let file, obj;
-	let map = new Map();
-	// Write each cell contacts to json
-	Object.entries(data).forEach(([cellName, cell]) => {
-		map.clear();
-		cell.forEach((contact) => {
-			if (map.has(contact.id)) {
-				let temp = map.get(contact.id);
-					temp.push(contact);
-				map.set(contact.id, temp);
-			}
-			else {
-				map.set(contact.id, [contact]);
-			}
-		});
+// })
+// .then(function(data) {
+// 	let file, obj;
+// 	let map = new Map();
+// 	// Write each cell contacts to json
+// 	Object.entries(data).forEach(([cellName, cell]) => {
+// 		map.clear();
+// 		cell.forEach((contact) => {
+// 			if (map.has(contact.id)) {
+// 				let temp = map.get(contact.id);
+// 					temp.push(contact);
+// 				map.set(contact.id, temp);
+// 			}
+// 			else {
+// 				map.set(contact.id, [contact]);
+// 			}
+// 		});
 		
-		obj = {};
-		map.forEach((value, key) => { value.forEach((v) => delete v["id"]); obj[key] = value }); // Remove extraneous "id" key, create output object
+// 		obj = {};
+// 		map.forEach((value, key) => { value.forEach((v) => delete v["id"]); obj[key] = value }); // Remove extraneous "id" key, create output object
 
-		file = "parsedDataTransform3/conns-" + cellName + ".json"; // Individual cell export
-		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
-	});
-})
+// 		file = "parsedDataTransform3/conns-" + cellName + ".json"; // Individual cell export
+// 		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
+// 	});
+// })
 .catch(function(reason) {
 	console.log('promise rejected for ' + reason);
 });
