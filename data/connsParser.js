@@ -29,6 +29,7 @@ function parseConns(conns) {
 
 	conns[0].forEach((item, index) => { 
 		obj = {
+			"id": 	 parseInt(conns[1][index]),
 			"area": {
 				"x": parseInt(conns[2][index])  * transform.x,
 				"y": parseInt(conns[3][index])  * transform.y,
@@ -80,10 +81,26 @@ new Promise(function(resolve, reject){
 
 })
 .then(function(data) {
+
+	let obj = { "cells": [] };
+
+	// Write each cell contacts to json
+	Object.entries(data).forEach(([cellName, cell]) => {
+		obj.cells.push(cellName);
+	});
+
+	// Write cell list to json
+	let file = 'parsedDataTransform3/conns-list.json'; 
+	jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) }); 
+
+	return data;
+
+})
+.then(function(data) {
 	let file;
 	// Write all cell + contacts to json
-	file = 'parsedDataTransform/conns.json'; 
-	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) });
+	file = 'parsedDataTransform3/conns-list.json'; 
+	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) }); 
 
 	// Get cell by id, get contacts with specific cell
 	// contacts = conns['cell1'].filter((el) => { if (el.id === 'cell2') return el });
@@ -109,9 +126,9 @@ new Promise(function(resolve, reject){
 		});
 		
 		obj = {};
-		map.forEach((value, key) => obj[key] = value);
+		map.forEach((value, key) => { value.forEach((v) => delete v["id"]); obj[key] = value }); // Remove extraneous "id" key, create output object
 
-		file = "parsedDataTransform/conns-" + cellName + ".json"; // Individual cell export
+		file = "parsedDataTransform3/conns-" + cellName + ".json"; // Individual cell export
 		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
 	});
 })
