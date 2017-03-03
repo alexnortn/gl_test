@@ -9,7 +9,7 @@ const fs = require('fs');
 const jsonfile = require('jsonfile');
 
 // Load contacts
-const connsIn = fs.readFileSync('conns.csv', 'utf8');
+const connsIn = fs.readFileSync('../conns.csv', 'utf8');
 const conns = connsIn.split('\n');
 
 const transform = { "x": 16.5, "y": 16.5, "z": 23 };
@@ -121,7 +121,7 @@ new Promise(function(resolve, reject){
 	});
 
 	// Write cell list to json
-	let file = 'parsedDataTransform4/conns-list.json'; 
+	let file = '../parsedDataTransform4/conns-list.json'; 
 	jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) }); 
 
 	return data;
@@ -131,7 +131,7 @@ new Promise(function(resolve, reject){
 	let file;
 	
 	// Write all cell + contacts to json
-	file = 'parsedDataTransform4/conns.json'; 
+	file = '../parsedDataTransform4/conns.json'; 
 	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) }); 
 
 	// Get cell by id, get contacts with specific cell
@@ -160,7 +160,7 @@ new Promise(function(resolve, reject){
 		obj = {};
 		map.forEach((value, key) => { value.forEach((v) => delete v["id"]); obj[key] = value }); // Remove extraneous "id" key, create output object
 
-		file = "parsedDataTransform4/conns-" + cellName + ".json"; // Individual cell export
+		file = "../parsedDataTransform4/conns-" + cellName + ".json"; // Individual cell export
 		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
 	});
 })
