@@ -1,7 +1,9 @@
 # gitignore for web_gl tests
 
+data/meshes
 data/parsedData
 data/parsedDataTransform
 data/parsedDataTransform2
 data/parsedDataTransform3
+data/parsedDataTransform4
 

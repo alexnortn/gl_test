@@ -5,13 +5,14 @@
 
 'use strict';
 
-let fs = require('fs');
-let jsonfile = require('jsonfile');
+const fs = require('fs');
+const jsonfile = require('jsonfile');
 
-let connsIn = fs.readFileSync('conns.csv', 'utf8');
-let conns = connsIn.split('\n');
+// Load contacts
+const connsIn = fs.readFileSync('conns.csv', 'utf8');
+const conns = connsIn.split('\n');
 
-let transform = { "x": 16.5, "y": 16.5, "z": 23 };
+const transform = { "x": 16.5, "y": 16.5, "z": 23 };
 
 // Museum scaling factor
 transform.x *= 2;
@@ -27,6 +28,7 @@ function parseConns(conns) {
 	// Parse array(String) -> Array(Array)
 	conns = conns.map((item) => item.split(','));
 
+	// Build contact element
 	conns[0].forEach((item, index) => { 
 		obj = {
 			"id": 	 parseInt(conns[1][index]),
@@ -52,6 +54,9 @@ function parseConns(conns) {
 			}
 		};
 
+		item = parseInt(item);
+
+		// Check for duplicates
 		if (map.has(item)) {
 			let temp = map.get(item);
 				temp.push(obj);
@@ -60,7 +65,6 @@ function parseConns(conns) {
 		else {
 			map.set(item, [obj]);
 		}
-
 	});
 
 	return map;
@@ -72,11 +76,38 @@ new Promise(function(resolve, reject){
     resolve(parseConns(conns)); // parse conns.csv (expect Map)
 })
 .then(function(data){
+	const dir = './meshes/';
+	let map = new Map();
 	let obj = {};
+
+	let total = 0;
+	let has = 0;
+	let missing = 0;
 	
-	// Iterate through conns Map, setup <obj> for complete export
-	data.forEach((value, key) => obj[key] = value);
-	
+	// Load mesh list
+	fs.readdirSync(dir).forEach( (filename) => {
+		filename = filename.replace(".ctm", "");
+		filename = parseInt(filename);
+		map.set(filename, true);
+	});
+
+	// Filter output by mesh list
+	data.forEach((value, key) => {
+		total++;
+		if (map.has(parseInt(key))) {
+			obj[key] = value;
+			has++;
+		}
+		else {
+			missing++;
+		}
+	});
+
+	console.log(
+		"total:",   total, 
+		"has:",     has, 
+		"missing:", missing);
+
 	return obj;
 
 })
@@ -90,7 +121,7 @@ new Promise(function(resolve, reject){
 	});
 
 	// Write cell list to json
-	let file = 'parsedDataTransform3/conns-list.json'; 
+	let file = 'parsedDataTransform4/conns-list.json'; 
 	jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) }); 
 
 	return data;
@@ -98,8 +129,9 @@ new Promise(function(resolve, reject){
 })
 .then(function(data) {
 	let file;
+	
 	// Write all cell + contacts to json
-	file = 'parsedDataTransform3/conns.json'; 
+	file = 'parsedDataTransform4/conns.json'; 
 	jsonfile.writeFile(file, data, (error) => { if (error) console.error(err) }); 
 
 	// Get cell by id, get contacts with specific cell
@@ -128,13 +160,10 @@ new Promise(function(resolve, reject){
 		obj = {};
 		map.forEach((value, key) => { value.forEach((v) => delete v["id"]); obj[key] = value }); // Remove extraneous "id" key, create output object
 
-		file = "parsedDataTransform3/conns-" + cellName + ".json"; // Individual cell export
+		file = "parsedDataTransform4/conns-" + cellName + ".json"; // Individual cell export
 		jsonfile.writeFile(file, obj, (error) => { if (error) console.error(err) });	    
 	});
 })
 .catch(function(reason) {
 	console.log('promise rejected for ' + reason);
 });
-
-
-
