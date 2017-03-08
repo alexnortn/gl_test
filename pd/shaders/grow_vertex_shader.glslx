@@ -1,0 +1,54 @@
+// switch on high precision floats
+// #ifdef GL_ES //UNCOMMENT
+precision highp float;
+precision highp int;
+// #endif //UNCOMMENT
+
+uniform float u_frontier;
+attribute float a_hops;
+
+uniform vec3 u_camera_pos;
+
+varying vec4 v_Color;
+varying vec3 v_From_Cam;
+varying vec3 v_Normal;
+
+uniform mat4 projectionMatrix; //DELETE
+uniform mat4 modelViewMatrix; //DELETE
+attribute vec3 normal; //DELETE
+attribute vec3 position; //DELETE
+
+// Remap value
+float remap(float value, float inMin, float inMax, float outMin, float outMax) {
+    return outMin + (outMax - outMin) * (value - inMin) / (inMax - inMin);
+}
+
+void main() {
+    float amplitude = 0.0; // Create a swelling effect during signal prop
+
+    v_Normal = normal;
+    v_From_Cam = u_camera_pos - position;
+
+    float b = 0.0;
+
+    if (u_frontier > a_hops) {
+        b = 1.0;
+    }
+
+    if (a_hops < 0.0) {
+        b = 0.0;
+    }
+
+    v_Color = vec4(0.0,0.0,b,1.0);
+
+    // Multiply our a_displacement by the
+    // amplitude. The amp will get animated
+    // so we'll have animated a_displacement
+    vec3 newPosition = position + 
+                        normal * 
+                        vec3(amplitude);
+
+    gl_Position = projectionMatrix *
+                    modelViewMatrix *
+                    vec4(newPosition,1.0);
+}

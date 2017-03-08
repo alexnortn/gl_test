@@ -1,0 +1,44 @@
+// #ifdef GL_ES //UNCOMMENT
+    precision highp float;
+// #endif //UNCOMMENT
+
+// Same name and type as VS
+varying vec4 v_Color;
+varying vec3 v_From_Cam;
+varying vec3 v_Normal;
+
+void main() {
+    vec3 from_Cam = normalize(v_From_Cam);
+    vec3 light1 = vec3(1,0,0);
+    vec3 light2 = vec3(0,0.5,0);
+    
+    float cam_mult = 1.0;
+    float light1_mult = 0.75;
+    float light2_mult = 1.0;
+    
+    light1 = normalize(light1);
+    light2 = normalize(light2);
+
+    float dProdCam = max(0.0, dot(v_Normal, from_Cam));
+            // dProdCam = 1.0 - dProdCam;
+            // dProdCam = clamp(dProdCam, 0.0, 1.0);
+    
+    // Flipping the dot-product gives an edge glow effect
+    // Naturally, this will result in an emerging (dark) view
+    float dProd1 = max(0.0, dot(v_Normal, light1));
+            dProd1 = 1.0 - dProd1;
+            dProd1 = clamp(dProd1, 0.0, 1.0);
+
+    float dProd2 = max(0.0, dot(v_Normal, light2));
+            // dProd2 = 1.0 - dProd2;
+            // dProd2 = clamp(dProd2, 0.0, 1.0);
+
+    // float fragColorMix = (dProd1 + dProdCam) / 2.0;
+    float fragColorMix = clamp( ( (dProdCam * cam_mult + dProd1 * light1_mult + dProd2 * light2_mult) / 2.0 ), 0.0, 1.0 );
+            
+    // vec4 fragColor = vec4(dProd2, dProd2, dProd2, 1.0); 
+    vec4 fragColor = vec4(fragColorMix, fragColorMix, fragColorMix, 1); 
+    
+    // Feed into our frag colour
+    gl_FragColor = (v_Color * fragColor);    
+}
