@@ -153,7 +153,7 @@ class Neuron {
         this.geometry.addAttribute('a_hops', new THREE.BufferAttribute(this.hopMap.map, 1));
     }
     static generateFromId(id, root) {
-        let connsPromise = fetch(`../data/conns-${id}.json`) // Check if this data exists...
+        let connsPromise = fetch(`./data/conns-${id}.json`) // Check if this data exists...
             .then(function (response) {
             return response.json();
         })
