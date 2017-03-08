@@ -163,7 +163,7 @@ class Neuron {
             console.log('meow');
         });
         let geometryPromise = new Promise((f, r) => {
-            const url = `http://museum.eyewire.org/1.0/mesh/${id}`;
+            const url = `./data/${id}`;
             const loader = new THREE.CTMLoader();
             loader.load(url, (geometry) => {
                 f(geometry);
