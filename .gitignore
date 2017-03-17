@@ -1,5 +1,11 @@
 # gitignore for web_gl tests
 
+volume/
+cells/
+data/connsData
+data/node_modules
+data/conns.csv
+data/conns.csv.zip
 data/meshes
 data/parsedData
 data/parsedDataTransform
