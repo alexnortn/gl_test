@@ -494,33 +494,45 @@ async function main() {
 	const tPerlin = $( 't-perlin' );
 	tPerlin.addEventListener( 'change', () => { state.perlin = tPerlin.checked; } );
 
-	// Two auto-orbit modes (mutually exclusive), both driven by OrbitControls'
-	// autoRotate + the shared speed slider:
-	//   Auto-orbit  — a flat spin about the vertical axis.
-	//   Polar-orbit — a banked aerial circle about the cells' face-normal: the camera
-	//                 sits off the normal and looks down at the foreshortened arbor,
-	//                 like flying a plane around them.
+	// Two mutually-exclusive auto-orbit modes, sharing the orbit-speed slider:
+	//   Auto-orbit  — OrbitControls' flat spin about world-up.
+	//   Polar-orbit — a banked circumnavigation about the SAC arbor's *normal*
+	//                 (the thin axis, world X), centred on the SAC soma: the camera
+	//                 holds a fixed ~50° tilt and circles the arbor without ever
+	//                 tumbling edge-on. Driven manually in the render loop because
+	//                 OrbitControls.autoRotate always spins about world-up (which is
+	//                 what made the earlier polar orbit tumble).
 	const tOrbit = $( 't-orbit' ), tPolar = $( 't-polar' ), cOrbit = $( 'c-orbit' ), cOrbitVal = $( 'c-orbit-val' );
 	controls.autoRotateSpeed = +cOrbit.value;
 
-	function setPolarView() {
-		const axis = new THREE.Vector3( 1, 0, 0 ); // cells' face-normal = the orbit axis
-		camera.up.copy( axis );
-		controls.target.copy( center );
-		const theta = THREE.MathUtils.degToRad( 50 ); // tilt off the normal → banked look-down
-		camera.position.copy( center )
-			.addScaledVector( axis, fitDist * Math.cos( theta ) )
-			.addScaledVector( new THREE.Vector3( 0, 0, 1 ), fitDist * Math.sin( theta ) );
-		controls.update();
+	const s3 = SOMA.sac * 3;
+	const sacSoma = new THREE.Vector3( sacCell.pos[ s3 ], sacCell.pos[ s3 + 1 ], sacCell.pos[ s3 + 2 ] );
+	const NORMAL = new THREE.Vector3( 1, 0, 0 );        // SAC arbor normal (thin axis)
+	const POLAR_THETA = THREE.MathUtils.degToRad( 50 ); // camera tilt off the normal
+	let polarAzimuth = 0;
+
+	function setPolarView() { controls.target.copy( sacSoma ); camera.up.copy( NORMAL ); }
+
+	// Advance + place the camera one frame of the polar orbit.
+	function updatePolar() {
+		polarAzimuth += ( 2 * Math.PI / 3600 ) * controls.autoRotateSpeed; // match OrbitControls' speed feel
+		// Circle within the Y–Z arbor plane, held POLAR_THETA off the X normal.
+		const dir = new THREE.Vector3( 0, Math.cos( polarAzimuth ), Math.sin( polarAzimuth ) )
+			.multiplyScalar( Math.sin( POLAR_THETA ) )
+			.addScaledVector( NORMAL, Math.cos( POLAR_THETA ) );
+		camera.position.copy( sacSoma ).addScaledVector( dir, fitDist );
+		camera.up.copy( NORMAL );
+		camera.lookAt( sacSoma );
 	}
 
-	const applyOrbit = () => { controls.autoRotate = tOrbit.checked || tPolar.checked; };
+	const applyOrbit = () => { controls.autoRotate = tOrbit.checked; };
 	tOrbit.addEventListener( 'change', () => {
 		if ( tOrbit.checked ) { tPolar.checked = false; camera.up.set( 0, 1, 0 ); controls.update(); }
 		applyOrbit();
 	} );
 	tPolar.addEventListener( 'change', () => {
-		if ( tPolar.checked ) { tOrbit.checked = false; setPolarView(); }
+		if ( tPolar.checked ) { tOrbit.checked = false; controls.autoRotate = false; setPolarView(); }
+		else { camera.up.set( 0, 1, 0 ); controls.update(); } // hand control back to OrbitControls
 		applyOrbit();
 	} );
 	cOrbit.addEventListener( 'input', () => { controls.autoRotateSpeed = +cOrbit.value; cOrbitVal.textContent = cOrbit.value; } );
@@ -545,11 +557,12 @@ async function main() {
 	$( 'loading' ).hidden = true;
 
 	if ( EMBED ) {
-		// Ambient hero: no UI, gentle auto-orbit, circuit running with livelier firing.
+		// Ambient hero: no UI, slow polar circumnavigation, circuit running livelier.
 		stats.dom.style.display = 'none';
 		document.getElementById( 'views' ).style.display = 'none';
-		controls.autoRotate = true;
 		controls.autoRotateSpeed = 0.4;
+		tPolar.checked = true;
+		setPolarView();
 		state.firingRate = 0.8;
 		setMode( 'circuit' );
 	} else {
@@ -580,7 +593,7 @@ async function main() {
 		ganMat.uniforms.u_camera_pos.value.copy( camera.position );
 		sacMat.uniforms.u_camera_pos.value.copy( camera.position );
 
-		controls.update();
+		if ( tPolar.checked ) updatePolar(); else controls.update();
 		renderer.render( scene, camera );
 
 		stats.end();
