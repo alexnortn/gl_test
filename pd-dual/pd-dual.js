@@ -449,14 +449,14 @@ async function main() {
 
 	for ( const r of document.querySelectorAll( 'input[name=mode]' ) ) r.addEventListener( 'change', () => setMode( r.value ) );
 
-	// Collapse / expand the control panel.
-	$( 'controls-toggle' ).addEventListener( 'click', () => {
-		const collapsed = panel.classList.toggle( 'collapsed' );
-		$( 'controls-toggle' ).textContent = collapsed ? '▸' : '▾';
-		// Collapsing also hides the FPS meter and the snap-view buttons.
-		stats.dom.style.display = collapsed ? 'none' : '';
-		document.getElementById( 'views' ).style.display = collapsed ? 'none' : '';
-	} );
+	// Collapse / expand the control panel (also hides the FPS meter + snap views).
+	const setCollapsed = ( c ) => {
+		panel.classList.toggle( 'collapsed', c );
+		$( 'controls-toggle' ).textContent = c ? '▸' : '▾';
+		stats.dom.style.display = c ? 'none' : '';
+		document.getElementById( 'views' ).style.display = c ? 'none' : '';
+	};
+	$( 'controls-toggle' ).addEventListener( 'click', () => setCollapsed( ! panel.classList.contains( 'collapsed' ) ) );
 
 	// Snap-to-view buttons (bottom-right). stopPropagation so they don't also orbit.
 	const viewBar = document.getElementById( 'views' );
@@ -537,6 +537,25 @@ async function main() {
 	} );
 	cOrbit.addEventListener( 'input', () => { controls.autoRotateSpeed = +cOrbit.value; cOrbitVal.textContent = cOrbit.value; } );
 
+	// As soon as the user rotates / pans / zooms, hand control over: drop out of any
+	// auto-orbit. (A plain click — to fire a pulse — does not count; only a drag.)
+	function stopAutoOrbit() {
+		if ( ! tOrbit.checked && ! tPolar.checked ) return;
+		if ( tPolar.checked ) { tPolar.checked = false; camera.up.set( 0, 1, 0 ); }
+		tOrbit.checked = false;
+		controls.autoRotate = false;
+	}
+	let dragOrigin = null;
+	renderer.domElement.addEventListener( 'pointerdown', ( e ) => { dragOrigin = { x: e.clientX, y: e.clientY }; } );
+	renderer.domElement.addEventListener( 'pointermove', ( e ) => {
+		if ( dragOrigin && Math.abs( e.clientX - dragOrigin.x ) + Math.abs( e.clientY - dragOrigin.y ) > 8 ) {
+			stopAutoOrbit();
+			dragOrigin = null;
+		}
+	} );
+	window.addEventListener( 'pointerup', () => { dragOrigin = null; } );
+	renderer.domElement.addEventListener( 'wheel', () => stopAutoOrbit(), { passive: true } );
+
 	window.addEventListener( 'keydown', ( e ) => {
 		switch ( e.code ) {
 			case 'Digit1': tGan.set( ! ganCell.mesh.visible ); break;
@@ -567,7 +586,11 @@ async function main() {
 		setMode( 'circuit' );
 	} else {
 		panel.hidden = false;
-		setMode( 'circuit' ); // start running so it's alive on first open
+		setMode( 'circuit' );                              // start running so it's alive on first open
+		tOrbit.checked = true; controls.autoRotate = true; // start auto-orbiting (drops out on first manual input)
+		if ( window.matchMedia( '(pointer: coarse)' ).matches || window.innerWidth < 820 ) {
+			setCollapsed( true );                          // mobile / touch: start with the panel collapsed
+		}
 	}
 
 	// Debug handle (harmless; useful for testing/automation from the console).
