@@ -266,7 +266,8 @@ async function main() {
 	// Distance that fits the cells' bounding sphere from any direction (constant
 	// "zoom-extents" used by every snap view, regardless of viewing axis).
 	const radius = size.length() * 0.5;
-	const fitDist = ( radius / Math.sin( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) * 1.12;
+	// 1.12 fits the bounding sphere with margin; ×0.65 starts ~35% closer.
+	const fitDist = ( radius / Math.sin( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) * 1.12 * 0.65;
 
 	// Snap the camera to look at the cells' centre from `dir`, re-centring after any pan.
 	function snapTo( dir, up ) {
@@ -510,8 +511,13 @@ async function main() {
 	const NORMAL = new THREE.Vector3( 1, 0, 0 );        // SAC arbor normal (thin axis)
 	const POLAR_THETA = THREE.MathUtils.degToRad( 50 ); // camera tilt off the normal
 	let polarAzimuth = 0;
+	let polarRadius = fitDist;                          // adjustable by wheel during polar orbit
 
-	function setPolarView() { controls.target.copy( sacSoma ); camera.up.copy( NORMAL ); }
+	function setPolarView() {
+		controls.target.copy( sacSoma );
+		camera.up.copy( NORMAL );
+		polarRadius = camera.position.distanceTo( sacSoma ); // keep the current zoom level
+	}
 
 	// Advance + place the camera one frame of the polar orbit.
 	function updatePolar() {
@@ -520,7 +526,7 @@ async function main() {
 		const dir = new THREE.Vector3( 0, Math.cos( polarAzimuth ), Math.sin( polarAzimuth ) )
 			.multiplyScalar( Math.sin( POLAR_THETA ) )
 			.addScaledVector( NORMAL, Math.cos( POLAR_THETA ) );
-		camera.position.copy( sacSoma ).addScaledVector( dir, fitDist );
+		camera.position.copy( sacSoma ).addScaledVector( dir, polarRadius );
 		camera.up.copy( NORMAL );
 		camera.lookAt( sacSoma );
 	}
@@ -537,8 +543,9 @@ async function main() {
 	} );
 	cOrbit.addEventListener( 'input', () => { controls.autoRotateSpeed = +cOrbit.value; cOrbitVal.textContent = cOrbit.value; } );
 
-	// As soon as the user rotates / pans / zooms, hand control over: drop out of any
-	// auto-orbit. (A plain click — to fire a pulse — does not count; only a drag.)
+	// A manual drag (rotate or pan) hands control over: drop out of any auto-orbit.
+	// Zooming does NOT stop the orbit (handled below); a plain click — to fire a
+	// pulse — doesn't count either, only a drag past a small threshold.
 	function stopAutoOrbit() {
 		if ( ! tOrbit.checked && ! tPolar.checked ) return;
 		if ( tPolar.checked ) { tPolar.checked = false; camera.up.set( 0, 1, 0 ); }
@@ -554,7 +561,16 @@ async function main() {
 		}
 	} );
 	window.addEventListener( 'pointerup', () => { dragOrigin = null; } );
-	renderer.domElement.addEventListener( 'wheel', () => stopAutoOrbit(), { passive: true } );
+
+	// Wheel = zoom, and crucially does NOT stop the orbit. In polar mode the render
+	// loop owns the camera, so OrbitControls' dolly is ignored — adjust polarRadius
+	// directly instead. In auto-orbit mode OrbitControls handles the dolly itself.
+	renderer.domElement.addEventListener( 'wheel', ( e ) => {
+		if ( tPolar.checked ) {
+			polarRadius *= ( e.deltaY > 0 ? 1.1 : 0.9 );
+			polarRadius = Math.max( fitDist * 0.18, Math.min( fitDist * 3.5, polarRadius ) );
+		}
+	}, { passive: true } );
 
 	window.addEventListener( 'keydown', ( e ) => {
 		switch ( e.code ) {
