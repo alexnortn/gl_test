@@ -63,14 +63,18 @@ controls.panSpeed = 0.9;
 controls.zoomSpeed = 0.9;
 controls.rotateSpeed = 0.9;
 
-// In the landing-page hero (?embed) the canvas is full-bleed, so shift the circuit
-// to the right of the frame to clear the copy on the left. Only on landscape
-// (desktop); on the portrait mobile hero the circuit stays centred.
-function applyEmbedOffset() {
-	if ( ! EMBED ) return;
+// Nudge the rendered circuit within the frame (landscape only — centred on
+// portrait/mobile). In the full-bleed hero (?embed) shift it right + up so the
+// rotating arbor clears the copy on the left and the bottom/right edges; in the
+// standalone viz just lift it ~15% so it doesn't clip the bottom.
+function applyViewOffset() {
 	const w = window.innerWidth, h = window.innerHeight;
-	if ( w > h * 1.05 ) camera.setViewOffset( w, h, -0.22 * w, 0, w, h );
-	else if ( camera.view && camera.view.enabled ) camera.clearViewOffset();
+	if ( w > h * 1.05 ) {
+		const offX = EMBED ? -0.15 * w : 0; // hero: right-of-centre; standalone: centred
+		camera.setViewOffset( w, h, offX, 0.15 * h, w, h );
+	} else if ( camera.view && camera.view.enabled ) {
+		camera.clearViewOffset();
+	}
 }
 
 window.addEventListener( 'resize', () => {
@@ -78,7 +82,7 @@ window.addEventListener( 'resize', () => {
 	camera.aspect = WIDTH / HEIGHT;
 	camera.updateProjectionMatrix();
 	renderer.setSize( WIDTH, HEIGHT );
-	applyEmbedOffset();
+	applyViewOffset();
 } );
 
 // ---- Small helpers ------------------------------------------------------------
@@ -614,13 +618,14 @@ async function main() {
 		controls.autoRotateSpeed = 0.4;
 		tPolar.checked = true;
 		setPolarView();
-		applyEmbedOffset(); // shift the circuit to the right of the full-bleed hero
+		applyViewOffset(); // shift the circuit right + up in the full-bleed hero
 		state.firingRate = 0.8;
 		setMode( 'circuit' );
 	} else {
 		panel.hidden = false;
 		setMode( 'circuit' );                  // start running so it's alive on first open
 		tPolar.checked = true; setPolarView(); // start in polar-orbit (drops out on first manual drag)
+		applyViewOffset();                     // lift the circuit ~15% so it doesn't clip the bottom
 		if ( window.matchMedia( '(pointer: coarse)' ).matches || window.innerWidth < 820 ) {
 			setCollapsed( true );                          // mobile / touch: start with the panel collapsed
 		}
