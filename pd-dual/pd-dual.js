@@ -63,11 +63,22 @@ controls.panSpeed = 0.9;
 controls.zoomSpeed = 0.9;
 controls.rotateSpeed = 0.9;
 
+// In the landing-page hero (?embed) the canvas is full-bleed, so shift the circuit
+// to the right of the frame to clear the copy on the left. Only on landscape
+// (desktop); on the portrait mobile hero the circuit stays centred.
+function applyEmbedOffset() {
+	if ( ! EMBED ) return;
+	const w = window.innerWidth, h = window.innerHeight;
+	if ( w > h * 1.05 ) camera.setViewOffset( w, h, -0.22 * w, 0, w, h );
+	else if ( camera.view && camera.view.enabled ) camera.clearViewOffset();
+}
+
 window.addEventListener( 'resize', () => {
 	WIDTH = window.innerWidth; HEIGHT = window.innerHeight;
 	camera.aspect = WIDTH / HEIGHT;
 	camera.updateProjectionMatrix();
 	renderer.setSize( WIDTH, HEIGHT );
+	applyEmbedOffset();
 } );
 
 // ---- Small helpers ------------------------------------------------------------
@@ -266,8 +277,9 @@ async function main() {
 	// Distance that fits the cells' bounding sphere from any direction (constant
 	// "zoom-extents" used by every snap view, regardless of viewing axis).
 	const radius = size.length() * 0.5;
-	// 1.12 fits the bounding sphere with margin; ×0.65 starts ~35% closer.
-	const fitDist = ( radius / Math.sin( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) * 1.12 * 0.65;
+	// Fits the bounding sphere with margin — the full "zoom-extents" used by
+	// auto-orbit and the snap views. (Polar orbit zooms ~35% closer; see POLAR_DIST.)
+	const fitDist = ( radius / Math.sin( THREE.MathUtils.degToRad( camera.fov ) / 2 ) ) * 1.12;
 
 	// Snap the camera to look at the cells' centre from `dir`, re-centring after any pan.
 	function snapTo( dir, up ) {
@@ -510,13 +522,14 @@ async function main() {
 	const sacSoma = new THREE.Vector3( sacCell.pos[ s3 ], sacCell.pos[ s3 + 1 ], sacCell.pos[ s3 + 2 ] );
 	const NORMAL = new THREE.Vector3( 1, 0, 0 );        // SAC arbor normal (thin axis)
 	const POLAR_THETA = THREE.MathUtils.degToRad( 50 ); // camera tilt off the normal
+	const POLAR_DIST = fitDist * 0.65;                  // polar orbit sits ~35% closer than the fit distance
 	let polarAzimuth = 0;
-	let polarRadius = fitDist;                          // adjustable by wheel during polar orbit
+	let polarRadius = POLAR_DIST;                       // adjustable by wheel during polar orbit
 
 	function setPolarView() {
 		controls.target.copy( sacSoma );
 		camera.up.copy( NORMAL );
-		polarRadius = camera.position.distanceTo( sacSoma ); // keep the current zoom level
+		polarRadius = POLAR_DIST; // start at the polar zoom level (~35% closer)
 	}
 
 	// Advance + place the camera one frame of the polar orbit.
@@ -533,7 +546,10 @@ async function main() {
 
 	const applyOrbit = () => { controls.autoRotate = tOrbit.checked; };
 	tOrbit.addEventListener( 'change', () => {
-		if ( tOrbit.checked ) { tPolar.checked = false; camera.up.set( 0, 1, 0 ); controls.update(); }
+		if ( tOrbit.checked ) {
+			tPolar.checked = false;
+			snapTo( new THREE.Vector3( -1, 0.2, 0.12 ), new THREE.Vector3( 0, 1, 0 ) ); // reset to the full-zoom framing
+		}
 		applyOrbit();
 	} );
 	tPolar.addEventListener( 'change', () => {
@@ -598,12 +614,13 @@ async function main() {
 		controls.autoRotateSpeed = 0.4;
 		tPolar.checked = true;
 		setPolarView();
+		applyEmbedOffset(); // shift the circuit to the right of the full-bleed hero
 		state.firingRate = 0.8;
 		setMode( 'circuit' );
 	} else {
 		panel.hidden = false;
-		setMode( 'circuit' );                              // start running so it's alive on first open
-		tOrbit.checked = true; controls.autoRotate = true; // start auto-orbiting (drops out on first manual input)
+		setMode( 'circuit' );                  // start running so it's alive on first open
+		tPolar.checked = true; setPolarView(); // start in polar-orbit (drops out on first manual drag)
 		if ( window.matchMedia( '(pointer: coarse)' ).matches || window.innerWidth < 820 ) {
 			setCollapsed( true );                          // mobile / touch: start with the panel collapsed
 		}
