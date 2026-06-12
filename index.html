@@ -31,27 +31,28 @@
 		a:hover { text-decoration: underline; }
 
 		/* ---------- Hero ---------- */
-		.hero { position: relative; height: 100vh; min-height: 600px; overflow: hidden; }
-		.hero-bg {
-			position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
-			pointer-events: none; /* ambient only — use the button to interact */
+		/* Desktop: text left, live visualization right — side by side, no overlap. */
+		.hero {
+			display: grid; grid-template-columns: 1.1fr 0.9fr; align-items: center;
+			gap: 4vw; min-height: 100vh; max-width: 1400px; margin: 0 auto; padding: 92px 6vw 56px;
 		}
-		.hero-overlay {
-			position: absolute; inset: 0; pointer-events: none;
-			background:
-				radial-gradient(120% 90% at 50% 0%, transparent 35%, rgba(5,6,13,.55) 100%),
-				linear-gradient(180deg, rgba(5,6,13,.55) 0%, transparent 22%, transparent 60%, var(--bg) 100%);
+		.hero-text { max-width: 560px; }
+		.hero-viz {
+			position: relative; height: 72vh; max-height: 780px; border-radius: 18px; overflow: hidden;
+			border: 1px solid var(--line); background: #000;
+			box-shadow: 0 0 90px rgba(31,184,200,.12), 0 10px 50px rgba(0,0,0,.6);
 		}
-		.hero-content {
-			position: absolute; left: 0; right: 0; bottom: 9vh; padding: 0 8vw;
-			max-width: 980px; margin: 0 auto;
+		.hero-viz iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: none; }
+		.hero-viz::after {
+			content: ''; position: absolute; inset: 0; pointer-events: none;
+			background: radial-gradient(125% 100% at 50% 35%, transparent 58%, rgba(5,6,13,.5) 100%);
 		}
 		.eyebrow {
 			font-size: 12px; letter-spacing: .26em; text-transform: uppercase;
 			color: var(--teal-l); margin: 0 0 18px; font-weight: 600;
 		}
 		.hero h1 {
-			margin: 0 0 18px; font-size: clamp(34px, 6vw, 68px); line-height: 1.04;
+			margin: 0 0 18px; font-size: clamp(34px, 4.4vw, 60px); line-height: 1.05;
 			font-weight: 700; letter-spacing: -0.015em; color: #fff;
 			text-shadow: 0 0 40px rgba(79,195,255,.35), 0 0 80px rgba(31,184,200,.18);
 		}
@@ -59,7 +60,7 @@
 			background: linear-gradient(92deg, var(--blue-l), var(--teal-l));
 			-webkit-background-clip: text; background-clip: text; color: transparent;
 		}
-		.hero p { margin: 0 0 28px; font-size: clamp(15px, 1.7vw, 19px); color: var(--text); max-width: 660px; }
+		.hero-desc { margin: 0 0 28px; font-size: clamp(15px, 1.3vw, 18px); color: var(--text); max-width: 520px; }
 		.cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
 		.btn {
 			display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 10px;
@@ -109,9 +110,21 @@
 		footer { border-top: 1px solid var(--line); padding: 40px 0 70px; color: var(--muted); font-size: 14px; }
 		footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: space-between; align-items: center; }
 
-		@media (max-width: 640px) {
-			.hero { height: 88vh; }
-			.hero-content { bottom: 6vh; padding: 0 24px; }
+		/* Mobile: visualization on top (~2/3), simplified copy below. */
+		@media (max-width: 860px) {
+			.hero {
+				grid-template-columns: 1fr; align-items: start; align-content: start;
+				gap: 0; padding: 0; min-height: 100vh; max-width: none;
+			}
+			.hero-viz {
+				order: 1; height: 64vh; border-radius: 0; max-height: none;
+				border: none; border-bottom: 1px solid var(--line);
+			}
+			.hero-text { order: 2; max-width: none; padding: 28px 22px 36px; }
+			.eyebrow, .hero-desc { display: none; } /* simplify above the fold */
+			.hero h1 { font-size: clamp(30px, 8.5vw, 46px); margin-bottom: 24px; }
+			.cta { flex-direction: column; align-items: stretch; gap: 12px; }
+			.btn { width: 100%; justify-content: center; }
 			section { padding: 60px 0; }
 		}
 	</style>
@@ -120,12 +133,10 @@
 
 	<!-- ================= HERO ================= -->
 	<header class="hero">
-		<iframe class="hero-bg" src="pd-dual/?embed" title="pd-dual — live ganglion ⇄ SAC circuit" tabindex="-1" loading="eager"></iframe>
-		<div class="hero-overlay"></div>
-		<div class="hero-content">
+		<div class="hero-text">
 			<p class="eyebrow">Connectomics · WebGL · GLSL</p>
 			<h1>A retinal circuit,<br><span class="accent">brought to life.</span></h1>
-			<p>
+			<p class="hero-desc">
 				Two neurons reconstructed from the <a href="https://eyewire.org" target="_blank" rel="noopener">EyeWire</a>
 				connectome — a ganglion cell and a starburst amacrine cell — and the synapses
 				between them, animated as neural signals propagating through their dendrites.
@@ -134,6 +145,9 @@
 				<a class="btn btn-primary" href="pd-dual/">Launch the visualization →</a>
 				<a class="btn btn-ghost" href="#about">About the science ↓</a>
 			</div>
+		</div>
+		<div class="hero-viz">
+			<iframe src="pd-dual/?embed" title="pd-dual — live ganglion ⇄ SAC circuit" tabindex="-1" loading="eager"></iframe>
 		</div>
 	</header>
 
