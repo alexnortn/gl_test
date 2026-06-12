@@ -30,6 +30,10 @@ const FEATHER = 27;             // default lit-band half-width (≈ 1/3 of the o
 const SAC_WAVES = 8;            // concurrent SAC outward waves
 const GAN_CHANNELS = 16;        // concurrent ganglion inward pulses (4 vec4s)
 
+// ?embed → ambient hero mode for the landing page: hide the UI, auto-orbit, run
+// the circuit on its own.
+const EMBED = new URLSearchParams( location.search ).has( 'embed' );
+
 // ---- Renderer / scene / camera -----------------------------------------------
 let WIDTH = window.innerWidth, HEIGHT = window.innerHeight;
 const container = document.querySelector( '#container' );
@@ -506,7 +510,18 @@ async function main() {
 
 	// ---- Render loop --------------------------------------------------------------
 	$( 'loading' ).hidden = true;
-	panel.hidden = false;
+
+	if ( EMBED ) {
+		// Ambient hero: no UI, gentle auto-orbit, circuit running with livelier firing.
+		stats.dom.style.display = 'none';
+		document.getElementById( 'views' ).style.display = 'none';
+		controls.autoRotate = true;
+		controls.autoRotateSpeed = 0.6;
+		state.firingRate = 0.8;
+		setMode( 'circuit' );
+	} else {
+		panel.hidden = false;
+	}
 
 	// Debug handle (harmless; useful for testing/automation from the console).
 	window.pdDual = { sac, ganglion, sharedData, ganCell, sacCell, ganCloud, sacCloud, controls, setGlow: ( i ) => { glow[ i ] = 1; }, state };

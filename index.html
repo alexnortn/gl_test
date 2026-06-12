@@ -1,54 +1,233 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>gl_test — WebGL experiments</title>
-		<style>
-			:root { color-scheme: dark; }
-			body {
-				margin: 0; padding: 3rem 1.5rem; background: #000; color: #ddd;
-				font: 15px/1.6 -apple-system, system-ui, sans-serif;
-			}
-			main { max-width: 760px; margin: 0 auto; }
-			h1 { font-weight: 600; letter-spacing: .02em; }
-			p.lede { color: #999; }
-			ul { list-style: none; padding: 0; }
-			li { margin: .5rem 0; padding: .9rem 1.1rem; background: #111; border: 1px solid #222; border-radius: 8px; }
-			a { color: #6ea8ff; text-decoration: none; font-weight: 600; }
-			a:hover { text-decoration: underline; }
-			.desc { display: block; color: #999; font-weight: 400; margin-top: .2rem; }
-			.tag { font-size: 12px; color: #7a7; }
-			.tag.warn { color: #c96; }
-			.tag.muted { color: #777; }
-			code { background: #1a1a1a; padding: .1em .4em; border-radius: 4px; }
-		</style>
-	</head>
-	<body>
-		<main>
-			<h1>gl_test</h1>
-			<p class="lede">
-				WebGL / GLSL experiments visualizing neural signal propagation through
-				connectome-reconstructed neuron meshes. See <code>README.md</code> for how
-				it works. Serve over HTTP (<code>python3 -m http.server</code>), not
-				<code>file://</code>.
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Connectome Circuits — a retinal direction-selectivity circuit in WebGL</title>
+	<meta name="description" content="Two neurons from the EyeWire connectome — a ganglion cell and a starburst amacrine cell — and the synapses between them, animated as propagating neural signals in WebGL.">
+	<style>
+		:root {
+			--bg:    #05060d;
+			--bg2:   #0a0e1a;
+			--panel: rgba(16, 22, 38, 0.55);
+			--line:  rgba(120, 150, 220, 0.16);
+			--blue:  #2f50ff;
+			--blue-l:#4fc3ff;
+			--teal:  #1fb8c8;
+			--teal-l:#57ffe6;
+			--gold:  #ffd21a;
+			--text:  #cdd6e6;
+			--muted: #788499;
+			color-scheme: dark;
+		}
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0; background: var(--bg); color: var(--text);
+			font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+			-webkit-font-smoothing: antialiased;
+		}
+		a { color: var(--blue-l); text-decoration: none; }
+		a:hover { text-decoration: underline; }
+
+		/* ---------- Hero ---------- */
+		.hero { position: relative; height: 100vh; min-height: 600px; overflow: hidden; }
+		.hero-bg {
+			position: absolute; inset: 0; width: 100%; height: 100%; border: 0;
+			pointer-events: none; /* ambient only — use the button to interact */
+		}
+		.hero-overlay {
+			position: absolute; inset: 0; pointer-events: none;
+			background:
+				radial-gradient(120% 90% at 50% 0%, transparent 35%, rgba(5,6,13,.55) 100%),
+				linear-gradient(180deg, rgba(5,6,13,.55) 0%, transparent 22%, transparent 60%, var(--bg) 100%);
+		}
+		.hero-content {
+			position: absolute; left: 0; right: 0; bottom: 9vh; padding: 0 8vw;
+			max-width: 980px; margin: 0 auto;
+		}
+		.eyebrow {
+			font-size: 12px; letter-spacing: .26em; text-transform: uppercase;
+			color: var(--teal-l); margin: 0 0 18px; font-weight: 600;
+		}
+		.hero h1 {
+			margin: 0 0 18px; font-size: clamp(34px, 6vw, 68px); line-height: 1.04;
+			font-weight: 700; letter-spacing: -0.015em; color: #fff;
+			text-shadow: 0 0 40px rgba(79,195,255,.35), 0 0 80px rgba(31,184,200,.18);
+		}
+		.hero h1 .accent {
+			background: linear-gradient(92deg, var(--blue-l), var(--teal-l));
+			-webkit-background-clip: text; background-clip: text; color: transparent;
+		}
+		.hero p { margin: 0 0 28px; font-size: clamp(15px, 1.7vw, 19px); color: var(--text); max-width: 660px; }
+		.cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+		.btn {
+			display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 10px;
+			font-weight: 600; font-size: 15px; text-decoration: none; transition: transform .12s ease, box-shadow .2s ease;
+		}
+		.btn-primary {
+			color: #04101e; background: linear-gradient(92deg, var(--blue-l), var(--teal-l));
+			box-shadow: 0 6px 30px rgba(79,195,255,.35);
+		}
+		.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(79,195,255,.5); text-decoration: none; }
+		.btn-ghost { color: var(--text); border: 1px solid var(--line); background: var(--panel); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+		.btn-ghost:hover { color: #fff; border-color: rgba(120,150,220,.4); text-decoration: none; }
+
+		/* ---------- Sections ---------- */
+		.wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+		section { padding: 86px 0; }
+		.section-tag { font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--teal); font-weight: 600; margin: 0 0 14px; }
+		h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.12; margin: 0 0 22px; color: #fff; letter-spacing: -.01em; }
+		h3 { font-size: 19px; margin: 34px 0 8px; color: #eaf0fb; }
+		p.lead { font-size: 18px; color: var(--text); }
+		.muted { color: var(--muted); }
+
+		.legend { display: flex; flex-wrap: wrap; gap: 12px 26px; margin: 22px 0 6px; font-size: 14.5px; }
+		.legend span { display: inline-flex; align-items: center; gap: 9px; }
+		.dot { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 12px currentColor; }
+
+		.callout {
+			margin-top: 30px; border: 1px solid var(--line); border-radius: 14px; padding: 24px 26px;
+			background: linear-gradient(180deg, rgba(31,184,200,.06), rgba(47,80,255,.05));
+		}
+		.callout.paper { background: linear-gradient(180deg, rgba(255,210,26,.08), rgba(255,210,26,.02)); border-color: rgba(255,210,26,.22); }
+		.callout h3 { margin-top: 0; }
+		.paper-title { color: var(--gold); font-style: italic; }
+
+		/* ---------- Experiments ---------- */
+		.exp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin-top: 26px; }
+		.exp {
+			display: block; border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px;
+			background: var(--panel); transition: border-color .2s ease, transform .12s ease, background .2s ease;
+		}
+		.exp:hover { transform: translateY(-3px); border-color: rgba(79,195,255,.45); background: rgba(20,28,50,.6); text-decoration: none; }
+		.exp .name { font-weight: 700; color: #fff; font-size: 16px; }
+		.exp .tag { font-size: 11px; letter-spacing: .04em; color: var(--teal-l); margin-left: 8px; vertical-align: middle; }
+		.exp .tag.warn { color: var(--gold); }
+		.exp .desc { display: block; color: var(--muted); font-size: 13.5px; margin-top: 6px; line-height: 1.5; }
+
+		footer { border-top: 1px solid var(--line); padding: 40px 0 70px; color: var(--muted); font-size: 14px; }
+		footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: space-between; align-items: center; }
+
+		@media (max-width: 640px) {
+			.hero { height: 88vh; }
+			.hero-content { bottom: 6vh; padding: 0 24px; }
+			section { padding: 60px 0; }
+		}
+	</style>
+</head>
+<body>
+
+	<!-- ================= HERO ================= -->
+	<header class="hero">
+		<iframe class="hero-bg" src="pd-dual/?embed" title="pd-dual — live ganglion ⇄ SAC circuit" tabindex="-1" loading="eager"></iframe>
+		<div class="hero-overlay"></div>
+		<div class="hero-content">
+			<p class="eyebrow">Connectomics · WebGL · GLSL</p>
+			<h1>A retinal circuit,<br><span class="accent">brought to life.</span></h1>
+			<p>
+				Two neurons reconstructed from the <a href="https://eyewire.org" target="_blank" rel="noopener">EyeWire</a>
+				connectome — a ganglion cell and a starburst amacrine cell — and the synapses
+				between them, animated as neural signals propagating through their dendrites.
 			</p>
-			<ul>
-				<li><a href="neuron/">neuron</a> <span class="tag">modernized</span>
-					<span class="desc">Cell 10010 — 16 simultaneous "backprop" signals flowing to the soma. Shift-click to fire one; drag to orbit.</span></li>
-				<li><a href="bfs/">bfs</a> <span class="tag">modernized</span>
-					<span class="desc">The frontier-sweep technique on a torus knot — the clearest read of the algorithm. Space to reset.</span></li>
-				<li><a href="segment/">segment</a> <span class="tag">works</span>
-					<span class="desc">Browser-side marching cubes from a segmentation volume, then a BFS sweep.</span></li>
-				<li><a href="ebud/">ebud</a> <span class="tag">works</span>
-					<span class="desc">Torus-knot BFS sweep variant.</span></li>
-				<li><a href="heart/">heart</a> <span class="tag">works</span>
-					<span class="desc">Torus-knot BFS sweep variant.</span></li>
-				<li><a href="pd/">pd</a> <span class="tag">works</span>
-					<span class="desc">"Pipedream" — GPGPU connectome viewer (cell 70014), separately compiled.</span></li>
-				<li><a href="smooth_shader/">smooth_shader</a> <span class="tag warn">needs vendored dep</span>
-					<span class="desc">Klein-bottle distance shader. Broken: a <code>threejs.org</code> CDN script is now blocked by the browser.</span></li>
-			</ul>
-		</main>
-	</body>
+			<div class="cta">
+				<a class="btn btn-primary" href="pd-dual/">Launch the visualization →</a>
+				<a class="btn btn-ghost" href="#about">About the science ↓</a>
+			</div>
+		</div>
+	</header>
+
+	<!-- ================= ABOUT / SCIENCE ================= -->
+	<section id="about">
+		<div class="wrap">
+			<p class="section-tag">pd-dual · the hero piece</p>
+			<h2>What you're looking at</h2>
+			<p class="lead">
+				<strong style="color:#fff">pd-dual</strong> places two real neurons in the same 3D space, exactly
+				where they sit in the retina, and lets you watch signals move through them.
+			</p>
+
+			<div class="legend">
+				<span><i class="dot" style="color:#2f50ff;background:#2f50ff"></i> <b>Cell 10010</b> — ganglion cell</span>
+				<span><i class="dot" style="color:#1fb8c8;background:#1fb8c8"></i> <b>Cell 70014</b> — starburst amacrine cell (SAC)</span>
+				<span><i class="dot" style="color:#ffd21a;background:#ffd21a"></i> 22 shared synapses</span>
+			</div>
+
+			<p>
+				The two cells touch at <strong>22 synaptic contacts</strong> (the gold spheres), drawn directly
+				from the connectome's contact data. Signals propagate in the biologically correct direction:
+				the <span style="color:var(--teal-l)">starburst amacrine cell</span> fires <em>outward</em> from its
+				soma, an expanding wave that branches down every dendrite to the tips; the
+				<span style="color:var(--blue-l)">ganglion cell</span> fires <em>inward</em>, a pulse travelling back
+				along its arbor toward the cell body. When a starburst wave reaches a shared synapse, that contact
+				flares and hands the signal across to the ganglion cell — the circuit, firing.
+			</p>
+
+			<h3>The neuroscience</h3>
+			<p>
+				Starburst amacrine cells (SACs) are central to how the retina detects the <em>direction</em> of
+				motion. Their radial dendrites are presynaptic to direction-selective ganglion cells, and the
+				fine structure of that wiring — which parts of a SAC dendrite connect to which ganglion cell, and
+				with what timing — is what lets the circuit distinguish motion one way from the other. Mapping that
+				wiring at the level of individual synapses is exactly what connectomics makes possible.
+			</p>
+
+			<div class="callout paper">
+				<h3>📄 The paper</h3>
+				<p style="margin:0">
+					This circuitry is the subject of
+					<a class="paper-title" href="https://www.nature.com/articles/nature13240" target="_blank" rel="noopener">“Space-time wiring specificity supports direction selectivity in the retina”</a>
+					(Kim et&nbsp;al., <em>Nature</em>, 2014) — work I contributed to during my time in
+					<a href="https://seunglab.org" target="_blank" rel="noopener">Sebastian Seung's</a> computational
+					neuroscience lab. The neuron reconstructions shown here come from that lineage of work.
+				</p>
+			</div>
+
+			<div class="callout">
+				<h3>🎮 EyeWire</h3>
+				<p style="margin:0">
+					The meshes were reconstructed through <a href="https://eyewire.org" target="_blank" rel="noopener">EyeWire</a>,
+					the citizen-science game from the Seung lab where hundreds of thousands of players traced retinal
+					neurons through electron-microscopy data — another project I worked on back then. Every dendrite you
+					see here was mapped by that community.
+				</p>
+			</div>
+
+			<p class="muted" style="margin-top:30px; font-size:14.5px">
+				Tip: in the full visualization, <b>click</b> a cell or synapse to fire a pulse, switch on
+				<b>Circuit</b> or <b>Auto</b> mode to let it run, and use the snap-views and auto-orbit to explore.
+			</p>
+		</div>
+	</section>
+
+	<!-- ================= EXPERIMENTS ================= -->
+	<section style="background:var(--bg2); border-top:1px solid var(--line); border-bottom:1px solid var(--line);">
+		<div class="wrap">
+			<p class="section-tag">the archive</p>
+			<h2>Experiments</h2>
+			<p class="muted" style="max-width:640px">
+				A decade of WebGL + GLSL sketches in computational geometry and shaders, mostly built around the
+				same idea: turning a neuron's mesh into a graph and animating signals across it. Serve over HTTP and open any of them.
+			</p>
+
+			<div class="exp-grid">
+				<a class="exp" href="neuron/"><span class="name">neuron</span><span class="tag">modernized</span><span class="desc">Cell 10010 — 16 simultaneous backprop signals propagating to the soma. The single-cell predecessor of pd-dual.</span></a>
+				<a class="exp" href="bfs/"><span class="name">bfs</span><span class="tag">modernized</span><span class="desc">The frontier-sweep technique on a torus knot — the clearest read of the core algorithm.</span></a>
+				<a class="exp" href="pd/"><span class="name">pd</span><span class="tag">works</span><span class="desc">“Pipedream” — the original GPGPU connectome viewer (cell 70014) this project grew from.</span></a>
+				<a class="exp" href="segment/"><span class="name">segment</span><span class="tag">works</span><span class="desc">Browser-side marching-cubes surface extraction from a segmentation volume, then a BFS sweep.</span></a>
+				<a class="exp" href="ebud/"><span class="name">ebud</span><span class="tag">works</span><span class="desc">Frontier-sweep variant on a torus knot.</span></a>
+				<a class="exp" href="heart/"><span class="name">heart</span><span class="tag">works</span><span class="desc">Frontier-sweep variant on a torus knot.</span></a>
+				<a class="exp" href="smooth_shader/"><span class="name">smooth_shader</span><span class="tag warn">needs vendored dep</span><span class="desc">Klein-bottle parametric distance shader (a since-blocked CDN dependency).</span></a>
+			</div>
+		</div>
+	</section>
+
+	<footer>
+		<div class="wrap">
+			<span>Alex Norton · WebGL / GLSL connectomics experiments</span>
+			<span><a href="https://github.com/alexnortn/gl_test" target="_blank" rel="noopener">Source on GitHub ↗</a></span>
+		</div>
+	</footer>
+
+</body>
 </html>
