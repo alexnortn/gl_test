@@ -68,8 +68,12 @@ controls.rotateSpeed = 0.9;
 // landscape) also push it right-of-centre to clear the copy on the left.
 function applyViewOffset() {
 	const w = window.innerWidth, h = window.innerHeight;
-	const offX = ( EMBED && w > h * 1.05 ) ? -0.15 * w : 0;
-	camera.setViewOffset( w, h, offX, 0.15 * h, w, h );
+	const landscape = w > h * 1.05;
+	const offX = ( EMBED && landscape ) ? -0.15 * w : 0;
+	// Upward lift, tuned per layout: portrait/mobile lifts most; desktop hero a
+	// medium amount; desktop standalone viz only a touch (it felt too high at 0.15).
+	const offY = ( ! landscape ? 0.22 : ( EMBED ? 0.15 : 0.075 ) ) * h;
+	camera.setViewOffset( w, h, offX, offY, w, h );
 }
 
 window.addEventListener( 'resize', () => {
