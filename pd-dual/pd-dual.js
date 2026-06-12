@@ -448,6 +448,9 @@ async function main() {
 	$( 'controls-toggle' ).addEventListener( 'click', () => {
 		const collapsed = panel.classList.toggle( 'collapsed' );
 		$( 'controls-toggle' ).textContent = collapsed ? '▸' : '▾';
+		// Collapsing also hides the FPS meter and the snap-view buttons.
+		stats.dom.style.display = collapsed ? 'none' : '';
+		document.getElementById( 'views' ).style.display = collapsed ? 'none' : '';
 	} );
 
 	// Snap-to-view buttons (bottom-right). stopPropagation so they don't also orbit.
@@ -486,10 +489,35 @@ async function main() {
 	const tPerlin = $( 't-perlin' );
 	tPerlin.addEventListener( 'change', () => { state.perlin = tPerlin.checked; } );
 
-	// Auto-orbit — OrbitControls' built-in autoRotate around the (re-centred) target.
-	const tOrbit = $( 't-orbit' ), cOrbit = $( 'c-orbit' ), cOrbitVal = $( 'c-orbit-val' );
+	// Two auto-orbit modes (mutually exclusive), both driven by OrbitControls'
+	// autoRotate + the shared speed slider:
+	//   Auto-orbit  — a flat spin about the vertical axis.
+	//   Polar-orbit — a banked aerial circle about the cells' face-normal: the camera
+	//                 sits off the normal and looks down at the foreshortened arbor,
+	//                 like flying a plane around them.
+	const tOrbit = $( 't-orbit' ), tPolar = $( 't-polar' ), cOrbit = $( 'c-orbit' ), cOrbitVal = $( 'c-orbit-val' );
 	controls.autoRotateSpeed = +cOrbit.value;
-	tOrbit.addEventListener( 'change', () => { controls.autoRotate = tOrbit.checked; } );
+
+	function setPolarView() {
+		const axis = new THREE.Vector3( 1, 0, 0 ); // cells' face-normal = the orbit axis
+		camera.up.copy( axis );
+		controls.target.copy( center );
+		const theta = THREE.MathUtils.degToRad( 50 ); // tilt off the normal → banked look-down
+		camera.position.copy( center )
+			.addScaledVector( axis, fitDist * Math.cos( theta ) )
+			.addScaledVector( new THREE.Vector3( 0, 0, 1 ), fitDist * Math.sin( theta ) );
+		controls.update();
+	}
+
+	const applyOrbit = () => { controls.autoRotate = tOrbit.checked || tPolar.checked; };
+	tOrbit.addEventListener( 'change', () => {
+		if ( tOrbit.checked ) { tPolar.checked = false; camera.up.set( 0, 1, 0 ); controls.update(); }
+		applyOrbit();
+	} );
+	tPolar.addEventListener( 'change', () => {
+		if ( tPolar.checked ) { tOrbit.checked = false; setPolarView(); }
+		applyOrbit();
+	} );
 	cOrbit.addEventListener( 'input', () => { controls.autoRotateSpeed = +cOrbit.value; cOrbitVal.textContent = cOrbit.value; } );
 
 	window.addEventListener( 'keydown', ( e ) => {
@@ -521,6 +549,7 @@ async function main() {
 		setMode( 'circuit' );
 	} else {
 		panel.hidden = false;
+		setMode( 'circuit' ); // start running so it's alive on first open
 	}
 
 	// Debug handle (harmless; useful for testing/automation from the console).
