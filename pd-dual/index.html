@@ -1,0 +1,288 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="author" content="Alex Norton 2017 · modernized 2026" />
+		<meta name="viewport" content="width=device-width">
+		<title>gl_test · pd-dual — ganglion ⇄ SAC circuit</title>
+		<style>
+			html, body { padding: 0; margin: 0; overflow: hidden; background: #000; }
+
+			#controls {
+				position: fixed; top: 12px; right: 12px; z-index: 10; width: 218px;
+				background: rgba(17,17,17,.84); border: 1px solid #2a2a2a; border-radius: 8px;
+				padding: 12px 13px; color: #ddd; user-select: none;
+				font: 12px/1.45 -apple-system, system-ui, sans-serif;
+				-webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+			}
+			#controls h3 {
+				margin: 0 0 10px; font-size: 11px; letter-spacing: .07em;
+				text-transform: uppercase; color: #788; font-weight: 600;
+			}
+			#controls .grp { margin-bottom: 11px; }
+			#controls .grp-title {
+				font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+				color: #566; margin-bottom: 5px;
+			}
+			#controls label.chk, #controls label.rad {
+				display: flex; align-items: center; gap: 7px; cursor: pointer;
+				padding: 2px 0; color: #cdd;
+			}
+			#controls label.chk:hover, #controls label.rad:hover { color: #fff; }
+			#controls input[type=checkbox], #controls input[type=radio] { accent-color: #6ea8ff; margin: 0; }
+			#controls .swatch { width: 9px; height: 9px; border-radius: 50%; margin-left: auto; }
+			#controls .row { display: grid; grid-template-columns: auto 1fr 34px; align-items: center; gap: 8px; }
+			#controls input[type=range] { width: 100%; accent-color: #6ea8ff; margin: 0; }
+			#controls output { text-align: right; color: #6ea8ff; font-variant-numeric: tabular-nums; }
+			#controls .legend { margin-top: 4px; padding-top: 9px; border-top: 1px solid #242424;
+				color: #677; font-size: 10.5px; line-height: 1.5; }
+			#controls .legend b { color: #99a; font-weight: 600; }
+
+			/* Collapsible header */
+			#controls .hdr { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
+			#controls .hdr h3 { margin: 0; }
+			#controls-toggle {
+				background: none; border: none; color: #99a; cursor: pointer;
+				font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 4px;
+			}
+			#controls-toggle:hover { color: #fff; background: #222; }
+			#controls.collapsed .hdr { margin-bottom: 0; }
+			#controls.collapsed #controls-body { display: none; }
+
+			/* Snap-to-view buttons (bottom-right) */
+			#views {
+				position: fixed; bottom: 14px; right: 14px; z-index: 10;
+				display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px;
+			}
+			#views button {
+				background: rgba(17,17,17,.84); border: 1px solid #2a2a2a; border-radius: 7px;
+				color: #cdd; cursor: pointer; padding: 7px 12px; min-width: 62px;
+				font: 11px/1 -apple-system, system-ui, sans-serif; letter-spacing: .03em;
+				-webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+			}
+			#views button:hover { color: #fff; border-color: #6ea8ff; background: rgba(30,40,60,.84); }
+			#views button:active { background: rgba(50,70,110,.9); }
+			#loading {
+				position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+				color: #678; font: 13px -apple-system, system-ui, sans-serif; pointer-events: none;
+			}
+			#loading[hidden] { display: none; } /* #id specificity beats the UA [hidden] rule */
+		</style>
+
+		<script type="importmap">
+		{
+			"imports": {
+				"three": "/vendor/three/three.module.js",
+				"three/addons/": "/vendor/three/addons/"
+			}
+		}
+		</script>
+	</head>
+
+	<body>
+		<div id="container"></div>
+		<div id="loading">loading ganglion + SAC meshes…</div>
+
+		<div id="controls" hidden>
+			<div class="hdr">
+				<h3>Ganglion ⇄ SAC circuit</h3>
+				<button id="controls-toggle" title="Collapse / expand">▾</button>
+			</div>
+
+			<div id="controls-body">
+			<div class="grp">
+				<div class="grp-title">Cells</div>
+				<label class="chk"><input type="checkbox" id="t-gan" checked> 10010 · ganglion <span class="swatch" style="background:#2f50ff"></span></label>
+				<label class="chk"><input type="checkbox" id="t-sac" checked> 70014 · SAC <span class="swatch" style="background:#1fb8c8"></span></label>
+			</div>
+
+			<div class="grp">
+				<div class="grp-title">Synapses</div>
+				<label class="chk"><input type="checkbox" id="t-shared" checked> Shared contacts (22) <span class="swatch" style="background:#ffd21a"></span></label>
+				<label class="chk"><input type="checkbox" id="t-all"> All contacts (~13k)</label>
+			</div>
+
+			<div class="grp">
+				<div class="grp-title">Mode</div>
+				<label class="rad"><input type="radio" name="mode" id="m-manual" value="manual" checked> Manual — click to fire</label>
+				<label class="rad"><input type="radio" name="mode" value="circuit"> Circuit — SAC → ganglion</label>
+				<label class="rad"><input type="radio" name="mode" value="auto"> Auto — broad circuit</label>
+			</div>
+
+			<div class="grp">
+				<div class="row">
+					<label for="c-speed">Speed</label>
+					<input id="c-speed" type="range" min="0" max="100" step="1" value="43">
+					<output id="c-speed-val">2.0</output>
+				</div>
+				<div class="row">
+					<label for="c-rate">Firing rate</label>
+					<input id="c-rate" type="range" min="0.1" max="10" step="0.1" value="0.2">
+					<output id="c-rate-val">0.2/s</output>
+				</div>
+				<label class="chk"><input type="checkbox" id="t-perlin" checked> Perlin variance</label>
+				<div class="row">
+					<label for="c-feather">Pulse width</label>
+					<input id="c-feather" type="range" min="5" max="100" step="1" value="25">
+					<output id="c-feather-val">25%</output>
+				</div>
+			</div>
+
+			<div class="grp">
+				<div class="grp-title">Camera</div>
+				<label class="chk"><input type="checkbox" id="t-orbit"> Auto-orbit</label>
+				<div class="row">
+					<label for="c-orbit">Orbit speed</label>
+					<input id="c-orbit" type="range" min="0.5" max="20" step="0.5" value="2">
+					<output id="c-orbit-val">2</output>
+				</div>
+			</div>
+
+			<div class="legend">
+				<b>Click</b> a cell or synapse to fire a pulse.<br>
+				<b>Space</b> SAC pulse · <b>1</b>/<b>2</b> cells · <b>S</b>/<b>A</b> synapses · <b>M</b> mode
+			</div>
+			</div><!-- /#controls-body -->
+		</div><!-- /#controls -->
+
+		<div id="views">
+			<button data-view="top">Top</button>
+			<button data-view="bottom">Bottom</button>
+			<button data-view="left">Left</button>
+			<button data-view="right">Right</button>
+		</div>
+	</body>
+
+	<!-- ===================== Shaders ===================== -->
+
+	<!-- SAC: an outward "shell" wave expanding from the soma along a_hops.
+	     A single increasing frontier lights every branch at a given radius at once,
+	     so the wave bifurcates naturally and dies out past the dendrite tips. -->
+	<script type="x-shader/x-vertex" id="sac-vertex">
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+
+		uniform float u_frontier[8];   // up to 8 concurrent outward waves
+		uniform float u_feather;
+		uniform vec3  u_camera_pos;
+
+		attribute float a_hops;        // hop distance from the SAC soma
+
+		varying float v_signal;
+		varying vec3  v_Normal;
+		varying vec3  v_From_Cam;
+
+		float remap(float v, float a, float b, float c, float d) {
+			return c + (d - c) * (v - a) / (b - a);
+		}
+
+		void main() {
+			v_Normal   = normal;
+			v_From_Cam = u_camera_pos - position;
+
+			// Parked waves sit at -100000, so |frontier - a_hops| is huge → no light.
+			float offset = 1000000.0;
+			for (int i = 0; i < 8; i++) {
+				offset = min(offset, abs(u_frontier[i] - a_hops));
+			}
+
+			float r = 0.0;
+			if (offset < u_feather) r = remap(offset, 0.0, u_feather, 1.0, 0.0);
+			v_signal = r;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+		}
+	</script>
+
+	<!-- Ganglion: an inward band travelling along a traced path toward the soma.
+	     16 channels packed into 4 vec4 path-membership attributes (as in neuron/). -->
+	<script type="x-shader/x-vertex" id="gan-vertex">
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+
+		uniform float u_frontier[16];  // 16 concurrent inward pulses
+		uniform float u_feather;
+		uniform vec3  u_camera_pos;
+
+		attribute float a_hops;        // hop distance from the ganglion soma
+		attribute vec4  a_backprop1;
+		attribute vec4  a_backprop2;
+		attribute vec4  a_backprop3;
+		attribute vec4  a_backprop4;
+
+		varying float v_signal;
+		varying vec3  v_Normal;
+		varying vec3  v_From_Cam;
+
+		float remap(float v, float a, float b, float c, float d) {
+			return c + (d - c) * (v - a) / (b - a);
+		}
+
+		void main() {
+			v_Normal   = normal;
+			v_From_Cam = u_camera_pos - position;
+
+			// channel k → attribute floor(k/4), component k%4. A vertex only responds
+			// to a pulse whose path passes through it (membership flag == 1).
+			float offset = 1000000.0;
+			for (int c = 0; c < 4; c++) {
+				offset = min(offset, abs(u_frontier[c]      - a_hops) + 1000000.0 * (1.0 - a_backprop1[c]));
+				offset = min(offset, abs(u_frontier[4 + c]  - a_hops) + 1000000.0 * (1.0 - a_backprop2[c]));
+				offset = min(offset, abs(u_frontier[8 + c]  - a_hops) + 1000000.0 * (1.0 - a_backprop3[c]));
+				offset = min(offset, abs(u_frontier[12 + c] - a_hops) + 1000000.0 * (1.0 - a_backprop4[c]));
+			}
+
+			float r = 0.0;
+			if (offset < u_feather) r = remap(offset, 0.0, u_feather, 1.0, 0.0);
+			v_signal = r;
+
+			gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+		}
+	</script>
+
+	<!-- Shared fragment: Fresnel rim shading. Surfaces whose normal is perpendicular
+	     to the view (silhouette edges) glow in the cell's colour, while faces pointing
+	     at the camera stay dim — this makes each cell's dendrites "pop" at the edges
+	     and read apart from the other cell. Neural impulses override toward the bright
+	     signal colour. -->
+	<script type="x-shader/x-fragment" id="frag">
+		#ifdef GL_ES
+		precision highp float;
+		#endif
+
+		uniform vec3 u_baseColor;
+		uniform vec3 u_signalColor;
+
+		varying float v_signal;
+		varying vec3  v_Normal;
+		varying vec3  v_From_Cam;
+
+		void main() {
+			vec3 N = normalize(v_Normal);
+			vec3 V = normalize(v_From_Cam);
+
+			// Fresnel: ~0 facing the camera, →1 at grazing/silhouette angles.
+			float ndotv   = max(0.0, dot(N, V));
+			float fresnel = pow(1.0 - ndotv, 2.2);
+
+			// Brighter interior fill + a softer rim that still glows at the edges
+			// (raised the base, eased the rim multiplier so the cores aren't dim).
+			float intensity = 0.60 + 0.85 * fresnel;
+			vec3 body    = u_baseColor * intensity;
+			vec3 impulse = u_signalColor * (0.80 + 0.6 * fresnel); // stays bright
+
+			vec3 col = mix(body, impulse, v_signal);
+			gl_FragColor = vec4(col, 1.0);
+		}
+	</script>
+	<!-- =================== End Shaders =================== -->
+
+	<!-- OpenCTM decoder globals (LZMA, CTM); loaded as classic scripts so they run
+	     before the deferred module. CTMLoader.js wraps them. -->
+	<script src="../js/ctm/lzma.js"></script>
+	<script src="../js/ctm/ctm.js"></script>
+
+	<script type="module" src="./pd-dual.js"></script>
+</html>
