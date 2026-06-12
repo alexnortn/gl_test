@@ -527,16 +527,18 @@ async function main() {
 	const POLAR_THETA = THREE.MathUtils.degToRad( 50 ); // camera tilt off the normal
 	const POLAR_DIST = fitDist * 0.65;                  // polar orbit sits ~35% closer than the fit distance
 	let polarAzimuth = 0;
-	let polarRadius = POLAR_DIST;                       // adjustable by wheel during polar orbit
+	let polarRadius = POLAR_DIST;                       // eased toward polarTargetRadius each frame
+	let polarTargetRadius = POLAR_DIST;                 // wheel sets this; the ease gives a standard-feeling zoom
 
 	function setPolarView() {
 		controls.target.copy( sacSoma );
 		camera.up.copy( NORMAL );
-		polarRadius = POLAR_DIST; // start at the polar zoom level (~35% closer)
+		polarRadius = polarTargetRadius = POLAR_DIST; // start at the polar zoom level (~35% closer)
 	}
 
 	// Advance + place the camera one frame of the polar orbit.
 	function updatePolar() {
+		polarRadius += ( polarTargetRadius - polarRadius ) * 0.1; // eased zoom (≈ OrbitControls damping)
 		polarAzimuth += ( 2 * Math.PI / 3600 ) * controls.autoRotateSpeed; // match OrbitControls' speed feel
 		// Circle within the Y–Z arbor plane, held POLAR_THETA off the X normal.
 		const dir = new THREE.Vector3( 0, Math.cos( polarAzimuth ), Math.sin( polarAzimuth ) )
@@ -586,8 +588,8 @@ async function main() {
 	// directly instead. In auto-orbit mode OrbitControls handles the dolly itself.
 	renderer.domElement.addEventListener( 'wheel', ( e ) => {
 		if ( tPolar.checked ) {
-			polarRadius *= ( e.deltaY > 0 ? 1.1 : 0.9 );
-			polarRadius = Math.max( fitDist * 0.18, Math.min( fitDist * 3.5, polarRadius ) );
+			polarTargetRadius *= ( e.deltaY > 0 ? 1.05 : 0.952 ); // gentler step; eased toward in updatePolar
+			polarTargetRadius = Math.max( fitDist * 0.18, Math.min( fitDist * 3.5, polarTargetRadius ) );
 		}
 	}, { passive: true } );
 
