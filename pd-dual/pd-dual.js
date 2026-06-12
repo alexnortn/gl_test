@@ -72,7 +72,7 @@ function applyViewOffset() {
 	const offX = ( EMBED && landscape ) ? -0.15 * w : 0;
 	// Upward lift, tuned per layout: portrait/mobile lifts most; desktop hero a
 	// medium amount; desktop standalone viz only a touch (it felt too high at 0.15).
-	const offY = ( ! landscape ? 0.22 : ( EMBED ? 0.15 : 0.075 ) ) * h;
+	const offY = ( ! landscape ? 0.22 : ( EMBED ? 0.15 : 0.10 ) ) * h;
 	camera.setViewOffset( w, h, offX, offY, w, h );
 }
 
@@ -538,7 +538,7 @@ async function main() {
 
 	// Advance + place the camera one frame of the polar orbit.
 	function updatePolar() {
-		polarRadius += ( polarTargetRadius - polarRadius ) * 0.1; // eased zoom (≈ OrbitControls damping)
+		polarRadius += ( polarTargetRadius - polarRadius ) * 0.06; // eased zoom (smoother, more gradual)
 		polarAzimuth += ( 2 * Math.PI / 3600 ) * controls.autoRotateSpeed; // match OrbitControls' speed feel
 		// Circle within the Y–Z arbor plane, held POLAR_THETA off the X normal.
 		const dir = new THREE.Vector3( 0, Math.cos( polarAzimuth ), Math.sin( polarAzimuth ) )
