@@ -1,7 +1,11 @@
 # gitignore for web_gl tests
 
-volume/
-cells/
+# Ignore the volume/cells folders, but publish the example assets the
+# segment/ and neuron/ experiments need so a fresh clone renders out of the box.
+volume/*
+!volume/segmentation
+cells/*
+!cells/10010.ctm
 data/connsData
 data/node_modules
 data/conns.csv

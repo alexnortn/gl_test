@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>gl_test — WebGL experiments</title>
+		<style>
+			:root { color-scheme: dark; }
+			body {
+				margin: 0; padding: 3rem 1.5rem; background: #000; color: #ddd;
+				font: 15px/1.6 -apple-system, system-ui, sans-serif;
+			}
+			main { max-width: 760px; margin: 0 auto; }
+			h1 { font-weight: 600; letter-spacing: .02em; }
+			p.lede { color: #999; }
+			ul { list-style: none; padding: 0; }
+			li { margin: .5rem 0; padding: .9rem 1.1rem; background: #111; border: 1px solid #222; border-radius: 8px; }
+			a { color: #6ea8ff; text-decoration: none; font-weight: 600; }
+			a:hover { text-decoration: underline; }
+			.desc { display: block; color: #999; font-weight: 400; margin-top: .2rem; }
+			.tag { font-size: 12px; color: #7a7; }
+			.tag.warn { color: #c96; }
+			.tag.muted { color: #777; }
+			code { background: #1a1a1a; padding: .1em .4em; border-radius: 4px; }
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>gl_test</h1>
+			<p class="lede">
+				WebGL / GLSL experiments visualizing neural signal propagation through
+				connectome-reconstructed neuron meshes. See <code>README.md</code> for how
+				it works. Serve over HTTP (<code>python3 -m http.server</code>), not
+				<code>file://</code>.
+			</p>
+			<ul>
+				<li><a href="neuron/">neuron</a> <span class="tag">modernized</span>
+					<span class="desc">Cell 10010 — 16 simultaneous "backprop" signals flowing to the soma. Shift-click to fire one; drag to orbit.</span></li>
+				<li><a href="bfs/">bfs</a> <span class="tag">modernized</span>
+					<span class="desc">The frontier-sweep technique on a torus knot — the clearest read of the algorithm. Space to reset.</span></li>
+				<li><a href="segment/">segment</a> <span class="tag">works</span>
+					<span class="desc">Browser-side marching cubes from a segmentation volume, then a BFS sweep.</span></li>
+				<li><a href="ebud/">ebud</a> <span class="tag">works</span>
+					<span class="desc">Torus-knot BFS sweep variant.</span></li>
+				<li><a href="heart/">heart</a> <span class="tag">works</span>
+					<span class="desc">Torus-knot BFS sweep variant.</span></li>
+				<li><a href="pd/">pd</a> <span class="tag">works</span>
+					<span class="desc">"Pipedream" — GPGPU connectome viewer (cell 70014), separately compiled.</span></li>
+				<li><a href="smooth_shader/">smooth_shader</a> <span class="tag warn">needs vendored dep</span>
+					<span class="desc">Klein-bottle distance shader. Broken: a <code>threejs.org</code> CDN script is now blocked by the browser.</span></li>
+			</ul>
+		</main>
+	</body>
+</html>
