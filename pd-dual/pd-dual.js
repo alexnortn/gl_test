@@ -372,15 +372,20 @@ async function main() {
 	let noisePhase = 0;
 
 	// Firing rate is "activations per second" (independent of propagation speed).
-	// With Perlin on, the base interval is modulated by smooth 1-D noise so the
+	// With Perlin on, the base interval is jittered by smooth 1-D noise so the
 	// timing drifts naturally; off, it's a fixed metronome.
-	const nextInterval = () => {
-		const base = Math.max( 40, 1000 / state.firingRate );
-		if ( ! state.perlin ) return base;
+	const jitter = () => {
+		if ( ! state.perlin ) return 1;
 		noisePhase += 0.35; // step through the noise field → correlated successive jitters
-		const factor = Math.min( 2.2, Math.max( 0.35, 1 + perlin1( noisePhase ) * 1.4 ) );
-		return Math.max( 40, base * factor );
+		return Math.min( 2.2, Math.max( 0.35, 1 + perlin1( noisePhase ) * 1.4 ) );
 	};
+
+	// The SAC circuit fires at the user's firing rate. In Auto ("broad circuit"),
+	// the ganglion is *also* bombarded by phantom inputs from across its ~6k
+	// synapses — a whole hidden population firing onto it — so it runs much busier.
+	const PHANTOM_FACTOR = 14;
+	const nextInterval    = () => Math.max( 40,  ( 1000 / state.firingRate ) * jitter() );
+	const phantomInterval = () => Math.max( 130, ( 1000 / ( state.firingRate * PHANTOM_FACTOR ) ) * jitter() );
 
 	const firePhantom = () => {
 		const p = ganCloudPts[ ( Math.random() * ganCloudPts.length ) | 0 ];
@@ -389,7 +394,7 @@ async function main() {
 
 	// Self-rescheduling timers (vs setInterval) so each gap can use a fresh interval.
 	function scheduleCircuit() { circuitTimer = setTimeout( () => { sac.fire(); scheduleCircuit(); }, nextInterval() ); }
-	function schedulePhantom() { phantomTimer = setTimeout( () => { firePhantom(); schedulePhantom(); }, nextInterval() ); }
+	function schedulePhantom() { phantomTimer = setTimeout( () => { firePhantom(); schedulePhantom(); }, phantomInterval() ); }
 
 	function setMode( m ) {
 		state.mode = m;
@@ -544,7 +549,7 @@ async function main() {
 		stats.dom.style.display = 'none';
 		document.getElementById( 'views' ).style.display = 'none';
 		controls.autoRotate = true;
-		controls.autoRotateSpeed = 0.6;
+		controls.autoRotateSpeed = 0.4;
 		state.firingRate = 0.8;
 		setMode( 'circuit' );
 	} else {
