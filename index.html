@@ -31,22 +31,20 @@
 		a:hover { text-decoration: underline; }
 
 		/* ---------- Hero ---------- */
-		/* Desktop: text left, live visualization right — side by side, no overlap. */
+		/* Desktop: full-bleed live canvas (the circuit is offset right by the embed),
+		   copy overlaid on the left. */
 		.hero {
-			display: grid; grid-template-columns: 1.1fr 0.9fr; align-items: center;
-			gap: 4vw; min-height: 100vh; max-width: 1400px; margin: 0 auto; padding: 92px 6vw 56px;
+			position: relative; min-height: 100vh; min-height: 100dvh; overflow: hidden;
+			display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+			padding: 0 4vw 0 7vw;
 		}
-		.hero-text { max-width: 560px; }
-		.hero-viz {
-			position: relative; height: 72vh; max-height: 780px; border-radius: 18px; overflow: hidden;
-			border: 1px solid var(--line); background: #000;
-			box-shadow: 0 0 90px rgba(31,184,200,.12), 0 10px 50px rgba(0,0,0,.6);
-		}
-		.hero-viz iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: none; }
+		.hero-viz { position: absolute; inset: 0; z-index: 0; }
+		.hero-viz iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; pointer-events: none; }
 		.hero-viz::after {
 			content: ''; position: absolute; inset: 0; pointer-events: none;
-			background: radial-gradient(125% 100% at 50% 35%, transparent 58%, rgba(5,6,13,.5) 100%);
+			background: linear-gradient(90deg, var(--bg) 0%, rgba(5,6,13,.72) 26%, rgba(5,6,13,.12) 52%, transparent 66%);
 		}
+		.eyebrow, .hero-text { position: relative; z-index: 1; max-width: 540px; }
 		.eyebrow {
 			font-size: 12px; letter-spacing: .26em; text-transform: uppercase;
 			color: var(--teal-l); margin: 0 0 18px; font-weight: 600;
@@ -110,19 +108,29 @@
 		footer { border-top: 1px solid var(--line); padding: 40px 0 70px; color: var(--muted); font-size: 14px; }
 		footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 26px; justify-content: space-between; align-items: center; }
 
-		/* Mobile: visualization on top (~2/3), simplified copy below. */
+		/* Mobile: eyebrow at top, visualization filling the middle, copy + actions
+		   below. dvh + safe-area padding keep the actions clear of the iOS browser
+		   chrome (which was clipping the bottom button). */
 		@media (max-width: 860px) {
 			.hero {
-				grid-template-columns: 1fr; align-items: start; align-content: start;
-				gap: 0; padding: 0; min-height: 100vh; max-width: none;
+				flex-direction: column; justify-content: flex-start; align-items: stretch;
+				padding: 0; min-height: 100vh; min-height: 100dvh;
+			}
+			.eyebrow {
+				order: 1; flex: 0 0 auto; max-width: none; margin: 0;
+				padding: calc(env(safe-area-inset-top, 0px) + 20px) 22px 0;
 			}
 			.hero-viz {
-				order: 1; height: 64vh; border-radius: 0; max-height: none;
-				border: none; border-bottom: 1px solid var(--line);
+				order: 2; flex: 1 1 auto; position: relative; inset: auto; min-height: 230px;
+				border-bottom: 1px solid var(--line);
 			}
-			.hero-text { order: 2; max-width: none; padding: 28px 22px 36px; }
-			.eyebrow, .hero-desc { display: none; } /* simplify above the fold */
-			.hero h1 { font-size: clamp(30px, 8.5vw, 46px); margin-bottom: 24px; }
+			.hero-viz::after { display: none; }
+			.hero-text {
+				order: 3; flex: 0 0 auto; max-width: none;
+				padding: 18px 22px calc(env(safe-area-inset-bottom, 0px) + 22px);
+			}
+			.hero-desc { display: none; } /* drop the long copy on mobile */
+			.hero h1 { font-size: clamp(28px, 8vw, 44px); margin-bottom: 22px; }
 			.cta { flex-direction: column; align-items: stretch; gap: 12px; }
 			.btn { width: 100%; justify-content: center; }
 			section { padding: 60px 0; }
@@ -133,8 +141,11 @@
 
 	<!-- ================= HERO ================= -->
 	<header class="hero">
+		<p class="eyebrow">Connectomics · WebGL · GLSL</p>
+		<div class="hero-viz">
+			<iframe src="pd-dual/?embed" title="pd-dual — live ganglion ⇄ SAC circuit" tabindex="-1" loading="eager"></iframe>
+		</div>
 		<div class="hero-text">
-			<p class="eyebrow">Connectomics · WebGL · GLSL</p>
 			<h1>A retinal circuit,<br><span class="accent">brought to life.</span></h1>
 			<p class="hero-desc">
 				Two neurons reconstructed from the <a href="https://eyewire.org" target="_blank" rel="noopener">EyeWire</a>
@@ -145,9 +156,6 @@
 				<a class="btn btn-primary" href="pd-dual/">Launch the visualization →</a>
 				<a class="btn btn-ghost" href="#about">About the science ↓</a>
 			</div>
-		</div>
-		<div class="hero-viz">
-			<iframe src="pd-dual/?embed" title="pd-dual — live ganglion ⇄ SAC circuit" tabindex="-1" loading="eager"></iframe>
 		</div>
 	</header>
 
