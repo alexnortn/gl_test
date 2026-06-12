@@ -63,18 +63,13 @@ controls.panSpeed = 0.9;
 controls.zoomSpeed = 0.9;
 controls.rotateSpeed = 0.9;
 
-// Nudge the rendered circuit within the frame (landscape only — centred on
-// portrait/mobile). In the full-bleed hero (?embed) shift it right + up so the
-// rotating arbor clears the copy on the left and the bottom/right edges; in the
-// standalone viz just lift it ~15% so it doesn't clip the bottom.
+// Nudge the rendered circuit within the frame. Lift it ~15% in every layout so it
+// reads as more centred and doesn't clip the bottom; on the desktop hero (?embed,
+// landscape) also push it right-of-centre to clear the copy on the left.
 function applyViewOffset() {
 	const w = window.innerWidth, h = window.innerHeight;
-	if ( w > h * 1.05 ) {
-		const offX = EMBED ? -0.15 * w : 0; // hero: right-of-centre; standalone: centred
-		camera.setViewOffset( w, h, offX, 0.15 * h, w, h );
-	} else if ( camera.view && camera.view.enabled ) {
-		camera.clearViewOffset();
-	}
+	const offX = ( EMBED && w > h * 1.05 ) ? -0.15 * w : 0;
+	camera.setViewOffset( w, h, offX, 0.15 * h, w, h );
 }
 
 window.addEventListener( 'resize', () => {
