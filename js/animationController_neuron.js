@@ -67,6 +67,42 @@ window.addEventListener( 'resize', () => {
 	controls.handleResize();
 } );
 
+// ---- Live, user-adjustable animation controls --------------------------------
+// Driven by the on-screen sliders in neuron/index.html. `sim` is read every frame
+// by the render loop, so changes take effect immediately.
+const sim = {
+	speed: 10,          // hops/frame each signal's frontier travels toward the soma
+	firingMaxDelay: 500, // ms: upper bound on the random delay before a channel re-fires
+};
+
+( function wireControls() {
+	const panel = document.getElementById( 'controls' );
+	if ( ! panel ) return;
+
+	// Keep clicks/drags/scrolls on the panel from reaching the canvas (and so the
+	// trackball camera / shift-click backprop).
+	for ( const ev of [ 'mousedown', 'touchstart', 'wheel' ] ) {
+		panel.addEventListener( ev, ( e ) => e.stopPropagation() );
+	}
+
+	const speed = document.getElementById( 'c-speed' );
+	const speedVal = document.getElementById( 'c-speed-val' );
+	const rate = document.getElementById( 'c-rate' );
+	const rateVal = document.getElementById( 'c-rate-val' );
+
+	const applySpeed = () => { sim.speed = +speed.value; speedVal.textContent = speed.value; };
+	const applyRate = () => {
+		// Higher "firing rate" → shorter delay before a finished channel fires again.
+		sim.firingMaxDelay = ( 1 - rate.value / 100 ) * 2000;
+		rateVal.textContent = rate.value + '%';
+	};
+
+	speed.addEventListener( 'input', applySpeed );
+	rate.addEventListener( 'input', applyRate );
+	applySpeed();
+	applyRate();
+} )();
+
 // ---- Load the mesh, then build everything ------------------------------------
 
 new CTMLoader()
@@ -238,19 +274,19 @@ function createMesh( geo ) {
 
 		// Advance every channel's frontier inward (toward the soma at hop 0).
 		for ( let i = 0; i < MAX_BACKPROP; i ++ ) {
-			frontier[ i ] -= 10;
+			frontier[ i ] -= sim.speed; // propagation speed (slider-controlled)
 
 			if ( waiting[ i ] ) continue;
 
 			// Once a band has swept past the soma (and faded), respawn this channel
-			// from a fresh random tip after a short random delay.
+			// from a fresh random tip after a random delay (firing rate, slider-controlled).
 			if ( frontier[ i ] < -uniforms.u_feather.value ) {
 				waiting[ i ] = 1;
 				const slot = i;
 				setTimeout( () => {
 					waiting[ slot ] = 0;
 					backprop( random_tip() );
-				}, Math.random() * 500 );
+				}, Math.random() * sim.firingMaxDelay );
 			}
 		}
 

@@ -5,13 +5,45 @@
 		<meta name="viewport" content="width=device-width">
 		<title>gl_test</title>
 		<style>
-			html, body {
-				padding: 0;
-				margin: 0;
+			html, body { padding: 0; margin: 0; overflow: hidden; }
+
+			/* On-screen animation controls (shared look with neuron/). */
+			#controls {
+				position: fixed; top: 12px; right: 12px; z-index: 10;
+				background: rgba(17,17,17,.82); border: 1px solid #2a2a2a; border-radius: 8px;
+				padding: 11px 13px; color: #ddd; user-select: none;
+				font: 12px/1.5 -apple-system, system-ui, sans-serif;
+				-webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 			}
+			#controls h3 {
+				margin: 0 0 9px; font-size: 11px; letter-spacing: .08em;
+				text-transform: uppercase; color: #667; font-weight: 600;
+			}
+			#controls .row {
+				display: grid; grid-template-columns: auto 130px 40px;
+				align-items: center; column-gap: 10px;
+			}
+			#controls .row + .row { margin-top: 9px; }
+			#controls label { color: #9aabb3; white-space: nowrap; }
+			#controls input[type=range] { width: 130px; accent-color: #6ea8ff; margin: 0; }
+			#controls output { text-align: right; color: #6ea8ff; font-variant-numeric: tabular-nums; }
 		</style>
 	</head>
-    <body></body>
+    <body>
+		<div id="controls">
+			<h3>Signal controls</h3>
+			<div class="row">
+				<label for="c-speed">Propagation speed</label>
+				<input id="c-speed" type="range" min="0.25" max="10" step="0.25" value="1">
+				<output id="c-speed-val">1.00</output>
+			</div>
+			<div class="row">
+				<label for="c-rate">Firing rate</label>
+				<input id="c-rate" type="range" min="0" max="100" step="1" value="83">
+				<output id="c-rate-val">83%</output>
+			</div>
+		</div>
+	</body>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.js"></script>
     <!-- Was a dead GitHub Pages URL (https://alexnortn.github.io/gl_test/js/trackballControls.js);
@@ -19,4 +51,29 @@
     <script src="../js/trackballControls.js"></script>
     <script src="./third_party/ctm/CTMLoader.js"></script>
     <script src="./concat.js"></script>
+
+    <!-- Wire the on-screen sliders to the live animation controls in concat.js. -->
+    <script>
+    (function () {
+        const panel = document.getElementById('controls');
+        // Keep drags/scrolls on the panel from reaching the (document-bound) trackball.
+        for (const ev of ['mousedown', 'touchstart', 'wheel']) {
+            panel.addEventListener(ev, (e) => e.stopPropagation());
+        }
+        const C = window.PD_CONTROLS;
+        const speed = document.getElementById('c-speed');
+        const speedVal = document.getElementById('c-speed-val');
+        const rate = document.getElementById('c-rate');
+        const rateVal = document.getElementById('c-rate-val');
+
+        const applySpeed = () => { C.propSpeed = +speed.value; speedVal.textContent = (+speed.value).toFixed(2); };
+        // Higher "firing rate" → shorter delay before a channel fires again.
+        const applyRate = () => { C.firingDelay = Math.round((1 - rate.value / 100) * 1200); rateVal.textContent = rate.value + '%'; };
+
+        speed.addEventListener('input', applySpeed);
+        rate.addEventListener('input', applyRate);
+        applySpeed();
+        applyRate();
+    })();
+    </script>
 </html>

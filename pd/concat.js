@@ -2,6 +2,13 @@ const Config = {
     MAX_PROP: 40,
     PROP_VEC_SIZE: 4,
 };
+// Live, user-adjustable animation controls, wired to the on-screen sliders in
+// index.html. Read live each frame / each re-fire, so changes apply immediately.
+const Controls = {
+    propSpeed: 1, // hops/frame each activation's frontier travels toward the soma
+    firingDelay: 200, // ms before a finished activation channel fires a new one
+};
+window.PD_CONTROLS = Controls;
 function parseShader(id) {
     let shaderString = document.getElementById(id).textContent;
     console.log(shaderString);
@@ -293,7 +300,7 @@ class Propogation {
     }
     move() {
         if (this.alive()) {
-            this.frontier -= Propogation.speed;
+            this.frontier -= Controls.propSpeed; // propagation speed (slider-controlled)
             if (!this.alive()) {
                 this.frontier = -1000;
                 this.onEnd();
@@ -401,7 +408,8 @@ function randomFarIndex(neuron) {
 function recurse(neuron) {
     let goodIdx = randomFarIndex(neuron);
     neuron.generatePropogation(goodIdx).then(() => {
-        recurse(neuron);
+        // Wait firingDelay ms before this channel fires again (firing rate, slider-controlled).
+        setTimeout(() => recurse(neuron), Controls.firingDelay);
     });
 }
 function loop() {
