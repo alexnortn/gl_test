@@ -90,6 +90,7 @@
 			background: linear-gradient(180deg, rgba(31,184,200,.06), rgba(47,80,255,.05));
 		}
 		.callout.paper { background: linear-gradient(180deg, rgba(255,210,26,.08), rgba(255,210,26,.02)); border-color: rgba(255,210,26,.22); }
+		.callout.caveat { background: linear-gradient(180deg, rgba(255,150,40,.07), rgba(255,150,40,.02)); border-color: rgba(255,150,40,.24); }
 		.callout h3 { margin-top: 0; }
 		.paper-title { color: var(--gold); font-style: italic; }
 
@@ -177,7 +178,8 @@
 
 			<p>
 				The two cells touch at <strong>22 synaptic contacts</strong> (the gold spheres), drawn directly
-				from the connectome's contact data. Signals propagate in the biologically correct direction:
+				from the connectome's contact data. Signals propagate in the broadly correct direction
+				(<a href="#caveat-note">with one important caveat below</a>):
 				the <span style="color:var(--teal-l)">starburst amacrine cell</span> fires <em>outward</em> from its
 				soma, an expanding wave that branches down every dendrite to the tips; the
 				<span style="color:var(--blue-l)">ganglion cell</span> fires <em>inward</em>, a pulse travelling back
@@ -193,6 +195,28 @@
 				with what timing — is what lets the circuit distinguish motion one way from the other. Mapping that
 				wiring at the level of individual synapses is exactly what connectomics makes possible.
 			</p>
+
+			<div class="callout caveat" id="caveat-note">
+				<h3>⚠️ A caveat on the animation</h3>
+				<p>
+					The default SAC animation — a single wave sweeping <em>outward</em> from the soma down every
+					dendrite at once — is a <strong>beautiful simplification, not biology</strong>. Real starburst
+					cells don't work that way. Each SAC dendrite behaves as a largely <strong>independent
+					computational module</strong>: it sums the inputs along its own length and responds on its own,
+					rather than relaying a signal that radiates uniformly from the cell body outward. This
+					branch-by-branch autonomy is, in fact, the heart of how the cell computes direction — so a
+					clean soma-out wave, while gorgeous, gets the mechanism backwards.
+				</p>
+				<p style="margin:0">
+					The pealing noise, the expanding shells, the phantom pulses — treat these as
+					<strong>neural-<em>inspired</em> visualizations</strong> first and foremost. For a more faithful
+					picture, switch the visualization into the new
+					<strong style="color:var(--teal-l)">Dendrite</strong> mode: instead of firing from the soma, it
+					lets Perlin noise pick a single branch, fires that branch's proximal synapses in sequence, and
+					lets their summation drive only that one dendrite to fire — branch-autonomous, the way the real
+					cell behaves.
+				</p>
+			</div>
 
 			<div class="callout paper">
 				<h3>📄 The paper</h3>

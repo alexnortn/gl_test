@@ -14,7 +14,11 @@
 //                      which fires an inward pulse toward its own soma.
 //
 // Modes: Manual (click-driven) · Circuit (auto SAC → synapse → ganglion) ·
-//        Auto (Circuit + "phantom" ganglion pulses from its other ~6k contacts).
+//        Auto (Circuit + "phantom" ganglion pulses from its other ~6k contacts) ·
+//        Dendrite (branch-autonomous: Perlin picks one dendrite, its proximal
+//        contacts fire in sequence, then only that branch fires distally — the
+//        scientifically faithful counterpart to the soma-out "beautiful" wave,
+//        reflecting that each SAC dendrite is an independent computational module).
 // ---------------------------------------------------------------------------
 
 import * as THREE from 'three';
@@ -140,10 +144,86 @@ function buildCell( geo, somaRoot ) {
 	return { geo, pos, n, faces, adj, hopMap, mesh, somaRoot };
 }
 
+// Partition a radial cell into independent dendritic branches. Removing the soma
+// "core" (everything within `sep` hops of the soma) makes the arbor fall apart
+// into its primary dendrites — each one a connected component of the remaining
+// graph. Returns a per-vertex branch id (core vertices = -1) and the branch count.
+// `sep` is chosen adaptively: the smallest soma radius that separates a SAC-like
+// number of sizeable branches. This is what lets a single dendrite fire on its own.
+function labelBranches( cell ) {
+	const { map, max } = cell.hopMap;
+	const n = cell.n;
+
+	const flood = ( sep ) => {
+		const branch = new Int32Array( n ).fill( -1 );
+		const sizes = [];
+		for ( let v = 0; v < n; v++ ) {
+			if ( map[ v ] < sep || branch[ v ] !== -1 ) continue;
+			const id = sizes.length;
+			branch[ v ] = id;
+			let size = 1;
+			const stack = [ v ];
+			while ( stack.length ) {
+				const u = stack.pop();
+				for ( const w of cell.adj.get( u ) ) {
+					if ( branch[ w ] === -1 && map[ w ] >= sep ) { branch[ w ] = id; stack.push( w ); size++; }
+				}
+			}
+			sizes.push( size );
+		}
+		return { branch, sizes };
+	};
+
+	// Sweep the separation radius outward; accept the first that yields a SAC-like
+	// count of sizeable branches (≥1% of vertices each). Fall back to the last try.
+	const minSize = n * 0.01;
+	let best = null;
+	for ( const frac of [ 0.05, 0.07, 0.09, 0.12, 0.15, 0.19, 0.24 ] ) {
+		const sep = Math.max( 2, Math.round( max * frac ) );
+		const r = flood( sep );
+		const big = r.sizes.filter( ( s ) => s > minSize ).length;
+		best = { ...r, sep, big };
+		if ( big >= 4 && big <= 14 ) break;
+	}
+
+	// Renumber so the sizeable branches get small contiguous ids; tiny fragments → -1.
+	const { branch, sizes, sep } = best;
+	const remap = new Int32Array( sizes.length ).fill( -1 );
+	let nBranches = 0;
+	for ( let i = 0; i < sizes.length; i++ ) if ( sizes[ i ] > minSize ) remap[ i ] = nBranches++;
+	for ( let v = 0; v < n; v++ ) branch[ v ] = branch[ v ] >= 0 ? remap[ branch[ v ] ] : -1;
+
+	return { branch, nBranches, sep };
+}
+
+// Branch id for an arbitrary vertex: if it sits in the soma core (-1), walk
+// outward (toward higher hops) to the nearest labelled vertex — so a synapse in
+// the proximal ring still maps onto the dendrite it belongs to.
+function branchOf( cell, v ) {
+	if ( cell.branch[ v ] >= 0 ) return cell.branch[ v ];
+	const seen = new Uint8Array( cell.n );
+	seen[ v ] = 1;
+	let frontier = [ v ];
+	while ( frontier.length ) {
+		const next = [];
+		for ( const u of frontier ) {
+			const hu = cell.hopMap.map[ u ];
+			for ( const w of cell.adj.get( u ) ) {
+				if ( seen[ w ] ) continue;
+				if ( cell.branch[ w ] >= 0 ) return cell.branch[ w ];
+				if ( cell.hopMap.map[ w ] >= hu ) { seen[ w ] = 1; next.push( w ); }
+			}
+		}
+		frontier = next;
+	}
+	return -1;
+}
+
 function makeMaterial( vertexId, frontierCount, baseColor, signalColor ) {
 	return new THREE.ShaderMaterial( {
 		uniforms: {
 			u_frontier:    { value: new Float32Array( frontierCount ).fill( -100000 ) },
+			u_wave_branch: { value: new Float32Array( frontierCount ).fill( -1 ) }, // per-wave branch mask (SAC only; -1 = whole cell)
 			u_feather:     { value: FEATHER },
 			u_camera_pos:  { value: new THREE.Vector3() },
 			u_baseColor:   { value: new THREE.Color( baseColor ) },
@@ -196,22 +276,29 @@ class Ganglion {
 }
 
 // SAC: outward shell waves expanding from the soma over the whole hop field.
+// A wave is normally whole-cell (branch -1), but can be masked to a single
+// dendritic branch — and started from an arbitrary hop — for the Dendrite mode,
+// where a branch fires distally on its own rather than radiating from the soma.
 class Sac {
 	constructor( cell, material ) {
 		this.cell = cell;
-		this.front = material.uniforms.u_frontier.value;  // Float32Array(8)
+		this.front = material.uniforms.u_frontier.value;        // Float32Array(8)
+		this.waveBranch = material.uniforms.u_wave_branch.value; // Float32Array(8); -1 = whole cell
 		this.feather = material.uniforms.u_feather.value;
 		this.maxHop = cell.hopMap.max;
 		this.active = new Uint8Array( SAC_WAVES );
-		this.synapses = [];        // [{ sacHop, ganVertex, i }] shared contacts
+		this.synapses = [];        // [{ sacHop, ganVertex, branch, i }] shared contacts
 		this.onCross = null;       // callback(synapse) when a wave reaches a contact
 	}
 
-	// Fire one outward wave from the soma (hop 0).
-	fire() {
+	// Fire one outward wave. With no args this is the classic whole-cell pulse from
+	// the soma (hop 0). Pass a branch id + start hop to fire just one dendrite,
+	// outward from a point along it (used by the Dendrite mode).
+	fire( branch = -1, startHop = 0 ) {
 		let s = this.active.indexOf( 0 );
 		if ( s < 0 ) s = 0;        // all busy → recycle the first slot
-		this.front[ s ] = 0;
+		this.front[ s ] = startHop;
+		this.waveBranch[ s ] = branch;
 		this.active[ s ] = 1;
 	}
 
@@ -221,15 +308,18 @@ class Sac {
 			const prev = this.front[ s ];
 			const next = prev + speed;                 // expand outward
 			this.front[ s ] = next;
+			const wb = this.waveBranch[ s ];
 
 			// Hand off to the ganglion cell at any shared contact this wave just crossed.
+			// A branch-masked wave only transfers through contacts on its own branch.
 			if ( this.onCross ) {
 				for ( const syn of this.synapses ) {
+					if ( wb >= 0 && syn.branch !== wb ) continue;
 					if ( syn.sacHop > prev && syn.sacHop <= next ) this.onCross( syn );
 				}
 			}
 
-			if ( next > this.maxHop + this.feather ) { this.active[ s ] = 0; this.front[ s ] = -100000; }
+			if ( next > this.maxHop + this.feather ) { this.active[ s ] = 0; this.front[ s ] = -100000; this.waveBranch[ s ] = -1; }
 		}
 	}
 }
@@ -260,6 +350,16 @@ async function main() {
 
 	const ganCell = buildCell( ganGeo, SOMA.ganglion );
 	const sacCell = buildCell( sacGeo, SOMA.sac );
+
+	// Independent dendritic branches of the SAC — drives both the per-vertex a_branch
+	// shader mask and the branch-autonomous "Dendrite" mode.
+	const sacBranches = labelBranches( sacCell );
+	sacCell.branch = sacBranches.branch;
+	sacCell.nBranches = sacBranches.nBranches;
+	const branchAttr = new Float32Array( sacCell.n );
+	for ( let i = 0; i < sacCell.n; i++ ) branchAttr[ i ] = sacBranches.branch[ i ];
+	sacGeo.setAttribute( 'a_branch', new THREE.BufferAttribute( branchAttr, 1 ) );
+	console.log( `SAC branches: ${ sacBranches.nBranches } (soma core within ${ sacBranches.sep } hops)` );
 
 	const ganMat = makeMaterial( 'gan-vertex', GAN_CHANNELS, COLORS.ganBase, COLORS.ganSignal );
 	const sacMat = makeMaterial( 'sac-vertex', SAC_WAVES,    COLORS.sacBase, COLORS.sacSignal );
@@ -313,10 +413,22 @@ async function main() {
 	const sharedData = sharedContacts.map( ( ct, i ) => {
 		const g = nearestVertex( ganCell.pos, ct.x, ct.y, ct.z );
 		const s = nearestVertex( sacCell.pos, ct.x, ct.y, ct.z );
-		return { centroid: ct, ganVertex: g.index, sacVertex: s.index, sacHop: sacCell.hopMap.map[ s.index ], i };
+		return { centroid: ct, ganVertex: g.index, sacVertex: s.index, sacHop: sacCell.hopMap.map[ s.index ], branch: branchOf( sacCell, s.index ), i };
 	} );
 	sac.synapses = sharedData;
 	console.log( `shared contacts: ${ sharedData.length }` );
+
+	// Group the shared contacts by SAC branch, each list sorted soma→tip, so the
+	// Dendrite mode can fire a branch's proximal contacts first and then drive only
+	// that dendrite outward from them.
+	const branchSyn = new Map();
+	for ( const d of sharedData ) {
+		if ( d.branch < 0 ) continue;
+		if ( ! branchSyn.has( d.branch ) ) branchSyn.set( d.branch, [] );
+		branchSyn.get( d.branch ).push( d );
+	}
+	const fireBranches = [ ...branchSyn.values() ].map( ( syns ) => syns.sort( ( a, b ) => a.sacHop - b.sacHop ) );
+	console.log( `fireable SAC branches (with shared contacts): ${ fireBranches.length }` );
 
 	// Glowing instanced spheres for the shared contacts.
 	const dummy = new THREE.Object3D();
@@ -351,7 +463,8 @@ async function main() {
 	const sacCloud = makeCloud( sacCloudPts, cloudRadius, COLORS.sacCloud );
 
 	// ---- Synapse transfer: SAC wave reaches a contact → glow + ganglion pulse ----
-	sac.onCross = ( syn ) => { glow[ syn.i ] = 1.0; ganglion.fire( syn.ganVertex ); };
+	const transfer = ( syn ) => { glow[ syn.i ] = 1.0; ganglion.fire( syn.ganVertex ); };
+	sac.onCross = transfer;
 
 	// ---- Interaction --------------------------------------------------------------
 	const raycaster = new THREE.Raycaster();
@@ -384,8 +497,8 @@ async function main() {
 
 	// ---- UI wiring ---------------------------------------------------------------
 	const state = { speed: 2, mode: 'manual', firingRate: 0.2, perlin: true };
-	let circuitTimer = null, phantomTimer = null;
-	let noisePhase = 0;
+	let circuitTimer = null, phantomTimer = null, dendriteTimer = null;
+	let noisePhase = 0, dendritePhase = 0;
 
 	// Firing rate is "activations per second" (independent of propagation speed).
 	// With Perlin on, the base interval is jittered by smooth 1-D noise so the
@@ -408,16 +521,43 @@ async function main() {
 		ganglion.fire( nearestVertex( ganCell.pos, p.x, p.y, p.z ).index );
 	};
 
+	// Dendrite mode — faithful to SAC branch autonomy. Rather than firing outward
+	// from the soma, Perlin noise picks one dendritic branch; that branch's proximal
+	// shared contacts fire in sequence (dendritic summation), and only *then* does the
+	// rest of that one branch fire distally. The soma never initiates the signal.
+	const DENDRITE_DELAY = 320;     // ms between a branch's proximal contacts summing
+	function fireDendrite() {
+		if ( ! fireBranches.length ) { sac.fire(); return; }      // nothing wired → fall back to a soma pulse
+		// (i) Perlin harmonic oscillation drifts smoothly across the branches…
+		dendritePhase += 0.6;
+		const t = Math.min( 0.999, Math.max( 0, perlin1( dendritePhase ) + 0.5 ) );
+		const syns = fireBranches[ Math.floor( t * fireBranches.length ) ]; // (ii) …selecting a branch
+		const branch = syns[ 0 ].branch;
+
+		// (iii) fire the most-proximal contact now, then the next 1–2 after a delay.
+		transfer( syns[ 0 ] );
+		const proximal = syns.slice( 1, 3 );
+		const startHop = syns.slice( 0, 3 ).reduce( ( m, s ) => Math.max( m, s.sacHop ), 0 );
+		setTimeout( () => {
+			if ( state.mode !== 'dendrite' ) return;              // mode switched during the delay
+			for ( const s of proximal ) transfer( s );
+			// (iv) their summation drives the rest of *only this* branch distally outward.
+			sac.fire( branch, startHop );
+		}, DENDRITE_DELAY );
+	}
+
 	// Self-rescheduling timers (vs setInterval) so each gap can use a fresh interval.
-	function scheduleCircuit() { circuitTimer = setTimeout( () => { sac.fire(); scheduleCircuit(); }, nextInterval() ); }
-	function schedulePhantom() { phantomTimer = setTimeout( () => { firePhantom(); schedulePhantom(); }, phantomInterval() ); }
+	function scheduleCircuit()  { circuitTimer  = setTimeout( () => { sac.fire();      scheduleCircuit();  }, nextInterval() ); }
+	function schedulePhantom()  { phantomTimer  = setTimeout( () => { firePhantom();   schedulePhantom();  }, phantomInterval() ); }
+	function scheduleDendrite() { dendriteTimer = setTimeout( () => { fireDendrite();  scheduleDendrite(); }, nextInterval() ); }
 
 	function setMode( m ) {
 		state.mode = m;
-		clearTimeout( circuitTimer ); clearTimeout( phantomTimer );
-		circuitTimer = phantomTimer = null;
+		clearTimeout( circuitTimer ); clearTimeout( phantomTimer ); clearTimeout( dendriteTimer );
+		circuitTimer = phantomTimer = dendriteTimer = null;
 		if ( m === 'circuit' || m === 'auto' ) scheduleCircuit();
 		if ( m === 'auto' ) schedulePhantom();
+		if ( m === 'dendrite' ) scheduleDendrite();
 		document.querySelector( `input[name=mode][value=${ m }]` ).checked = true;
 	}
 
@@ -600,7 +740,7 @@ async function main() {
 			case 'KeyS':   tShared.set( ! sharedMesh.visible ); break;
 			case 'KeyA':   tAll.set( ! $( 't-all' ).checked ); break;
 			case 'KeyM': {
-				const order = [ 'manual', 'circuit', 'auto' ];
+				const order = [ 'manual', 'circuit', 'auto', 'dendrite' ];
 				setMode( order[ ( order.indexOf( state.mode ) + 1 ) % order.length ] );
 				break;
 			}

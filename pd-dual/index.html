@@ -107,6 +107,7 @@
 				<label class="rad"><input type="radio" name="mode" id="m-manual" value="manual"> Manual — click to fire</label>
 				<label class="rad"><input type="radio" name="mode" value="circuit" checked> Circuit — SAC → ganglion</label>
 				<label class="rad"><input type="radio" name="mode" value="auto"> Auto — broad circuit</label>
+				<label class="rad"><input type="radio" name="mode" value="dendrite"> Dendrite — independent branches</label>
 			</div>
 
 			<div class="grp">
@@ -158,17 +159,22 @@
 
 	<!-- SAC: an outward "shell" wave expanding from the soma along a_hops.
 	     A single increasing frontier lights every branch at a given radius at once,
-	     so the wave bifurcates naturally and dies out past the dendrite tips. -->
+	     so the wave bifurcates naturally and dies out past the dendrite tips.
+	     u_wave_branch restricts a wave to one dendritic branch (a_branch): -1 lights
+	     the whole cell (the soma-out "beautiful" wave); >=0 lights only that branch,
+	     as used by the scientifically-faithful "Dendrite" mode. -->
 	<script type="x-shader/x-vertex" id="sac-vertex">
 		#ifdef GL_ES
 		precision highp float;
 		#endif
 
-		uniform float u_frontier[8];   // up to 8 concurrent outward waves
+		uniform float u_frontier[8];     // up to 8 concurrent outward waves
+		uniform float u_wave_branch[8];  // per-wave branch mask (-1 = whole cell)
 		uniform float u_feather;
 		uniform vec3  u_camera_pos;
 
-		attribute float a_hops;        // hop distance from the SAC soma
+		attribute float a_hops;          // hop distance from the SAC soma
+		attribute float a_branch;        // dendritic branch id (-1 = soma core)
 
 		varying float v_signal;
 		varying vec3  v_Normal;
@@ -183,9 +189,14 @@
 			v_From_Cam = u_camera_pos - position;
 
 			// Parked waves sit at -100000, so |frontier - a_hops| is huge → no light.
+			// A branch-masked wave (u_wave_branch >= 0) only lights its own branch;
+			// every other vertex — including the soma core (a_branch = -1) — is pushed
+			// far away, so a single dendrite can fire on its own.
 			float offset = 1000000.0;
 			for (int i = 0; i < 8; i++) {
-				offset = min(offset, abs(u_frontier[i] - a_hops));
+				float wb = u_wave_branch[i];
+				float masked = (wb < -0.5 || abs(wb - a_branch) < 0.5) ? 0.0 : 1000000.0;
+				offset = min(offset, abs(u_frontier[i] - a_hops) + masked);
 			}
 
 			float r = 0.0;
